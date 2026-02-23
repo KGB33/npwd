@@ -1,7 +1,13 @@
 *.beam
 *.ez
-/build
+build/
 erl_crash.dump
 
 .direnv
+.devenv
 .envrc
+
+# Generated Client code
+server/priv/static/client.js
+server/priv/static/index.html
+

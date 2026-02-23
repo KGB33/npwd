@@ -4,11 +4,12 @@
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    devenv.url = "github:cachix/devenv";
   };
 
   outputs = inputs @ {flake-parts, ...}:
     flake-parts.lib.mkFlake {inherit inputs;} {
-      imports = [];
+      imports = [inputs.devenv.flakeModule];
       systems = ["x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin"];
       perSystem = {
         config,
@@ -18,12 +19,28 @@
         system,
         ...
       }: {
-        devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            beam28Packages.erlang
-            gleam
-            rebar3
-          ];
+        devenv = {
+          shells.default = {
+            packages = with pkgs; [
+              beam28Packages.erlang
+              gleam
+              rebar3
+              bun
+            ];
+            env = {
+            };
+            services.postgres = {
+              enable = true;
+              package = pkgs.postgresql_18;
+              listen_addresses = "localhost";
+              initialDatabases =
+                ["dev" "test"]
+                |> map (db: {
+                  name = db;
+                  initialSQL = builtins.readFile ./schema.sql;
+                });
+            };
+          };
         };
         packages.default = pkgs.hello;
       };

@@ -1,0 +1,4 @@
+CREATE TABLE characters (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  name VARCHAR(50) NOT NULL
+);
