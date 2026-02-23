@@ -1,24 +1,9 @@
 # npwd
 
-[![Package Version](https://img.shields.io/hexpm/v/npwd)](https://hex.pm/packages/npwd)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/npwd/)
+New page; who's dis? A who's-who character directory for dyslexic readers.
 
-```sh
-gleam add npwd@1
-```
-```gleam
-import npwd
+# Development
 
-pub fn main() -> Nil {
-  // TODO: An example of the project in use
-}
-```
+Local development environment is handled by Nix + devenv. 
 
-Further documentation can be found at <https://hexdocs.pm/npwd>.
-
-## Development
-
-```sh
-gleam run   # Run the project
-gleam test  # Run the tests
-```
+Activate the shell via `nix develop --no-pure-eval`, then use `devenv up` to start Postgres.
