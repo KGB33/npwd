@@ -50,7 +50,7 @@
           workflows = pkgs.writeShellApplication {
             name = "copy-workflows";
             text = ''
-              cp -r ${config.githubActions.workflowsDir} ./.github/workflows
+              cp -r ${config.githubActions.workflowsDir}/. ./.github/workflows
               chmod -R u+w ./.github/workflows
             '';
           };
@@ -58,39 +58,49 @@
         githubActions = {
           enable = true;
           workflows = let
-          in {
-            testServer = {
-              name = "Unit test server";
+            checkoutStep = {
+              uses = "actions/checkout@v4";
+            };
+            checkSteps = [
+              {
+                run = "gleam deps download";
+              }
+              {
+                run = "gleam test";
+              }
+              {
+                run = "gleam format --check src test";
+              }
+            ];
+
+            beamSetupStep = {
+              uses = "erlef/setup-beam@v1";
+              with_ = {
+                otp-version = "28";
+                gleam-version = "1.14.0";
+                rebar3-version = "3";
+              };
+            };
+            mkTest = dir: setupStep: {
+              name = "Unit test ${dir}";
               on = ["push" "pull_request"];
-              defaults.run.workingDirectory = "./server";
+              defaults.run.workingDirectory = "./${dir}";
               jobs = {
                 test = {
                   runsOn = "ubuntu-latest";
-                  steps = [
-                    {
-                      uses = "actions/checkout@v4";
-                    }
-                    {
-                      uses = "erlef/setup-beam@v1";
-                      with_ = {
-                        otp-version = "28";
-                        gleam-version = "1.14.0";
-                        rebar3-version = "3";
-                      };
-                    }
-                    {
-                      run = "gleam deps download";
-                    }
-                    {
-                      run = "gleam test";
-                    }
-                    {
-                      run = "gleam format --check src test";
-                    }
-                  ];
+                  steps =
+                    [
+                      checkoutStep
+                      setupStep
+                    ]
+                    ++ checkSteps;
                 };
               };
             };
+            mkJsTest = dir: {};
+          in {
+            testServer = mkTest "server" beamSetupStep;
+            testSharedBeam = mkTest "shared" beamSetupStep;
           };
         };
       };
