@@ -9,8 +9,14 @@ pub fn handle_request(req: Request, mk_context: fn() -> Context) {
   use req <- middleware(req, ctx)
 
   case req.method, wisp.path_segments(req) {
+    http.Get, ["api", "characters"] -> characters.handle_list(ctx, req)
+    // CRUD
+    http.Post, ["api", "character"] -> characters.handle_save(ctx, req)
+    http.Patch, ["api", "character", id] ->
+      characters.handle_update(ctx, req, id)
+    http.Delete, ["api", "character", id] ->
+      characters.handle_delete(ctx, req, id)
     http.Get, _ -> index.serve(ctx)
-    http.Post, ["api", "characters"] -> characters.handle_save(ctx, req)
     _, _ -> wisp.not_found()
   }
 }
