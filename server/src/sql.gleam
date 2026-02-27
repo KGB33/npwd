@@ -8,6 +8,47 @@ import gleam/dynamic/decode
 import pog
 import youid/uuid.{type Uuid}
 
+/// A row you get from running the `get_characters_by_id` query
+/// defined in `./src/sql/get_characters_by_id.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type GetCharactersByIdRow {
+  GetCharactersByIdRow(id: Uuid, name: String)
+}
+
+/// Get A character by id
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn get_characters_by_id(
+  db: pog.Connection,
+  arg_1: Uuid,
+) -> Result(pog.Returned(GetCharactersByIdRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, uuid_decoder())
+    use name <- decode.field(1, decode.string)
+    decode.success(GetCharactersByIdRow(id:, name:))
+  }
+
+  "-- Get A character by id
+
+select
+    *
+from
+    characters
+where
+    id = $1
+;
+"
+  |> pog.query
+  |> pog.parameter(pog.text(uuid.to_string(arg_1)))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
 /// A row you get from running the `get_characters_by_name` query
 /// defined in `./src/sql/get_characters_by_name.sql`.
 ///
