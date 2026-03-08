@@ -8,6 +8,42 @@ import gleam/dynamic/decode
 import pog
 import youid/uuid.{type Uuid}
 
+/// A row you get from running the `delete_character` query
+/// defined in `./src/sql/delete_character.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type DeleteCharacterRow {
+  DeleteCharacterRow(id: Uuid, name: String)
+}
+
+/// Runs the `delete_character` query
+/// defined in `./src/sql/delete_character.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn delete_character(
+  db: pog.Connection,
+  arg_1: Uuid,
+) -> Result(pog.Returned(DeleteCharacterRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, uuid_decoder())
+    use name <- decode.field(1, decode.string)
+    decode.success(DeleteCharacterRow(id:, name:))
+  }
+
+  "DELETE FROM characters
+WHERE id = $1
+RETURNING *;
+"
+  |> pog.query
+  |> pog.parameter(pog.text(uuid.to_string(arg_1)))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
 /// A row you get from running the `get_characters_by_id` query
 /// defined in `./src/sql/get_characters_by_id.sql`.
 ///
@@ -161,6 +197,16 @@ pub fn list_characters(
   |> pog.execute(db)
 }
 
+/// A row you get from running the `update_character` query
+/// defined in `./src/sql/update_character.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type UpdateCharacterRow {
+  UpdateCharacterRow(id: Uuid, name: String)
+}
+
 /// Runs the `update_character` query
 /// defined in `./src/sql/update_character.sql`.
 ///
@@ -171,13 +217,18 @@ pub fn update_character(
   db: pog.Connection,
   arg_1: Uuid,
   arg_2: String,
-) -> Result(pog.Returned(Nil), pog.QueryError) {
-  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
+) -> Result(pog.Returned(UpdateCharacterRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, uuid_decoder())
+    use name <- decode.field(1, decode.string)
+    decode.success(UpdateCharacterRow(id:, name:))
+  }
 
   "UPDATE characters
 SET
   name = $2
 WHERE id = $1
+RETURNING *;
 "
   |> pog.query
   |> pog.parameter(pog.text(uuid.to_string(arg_1)))
