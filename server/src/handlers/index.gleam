@@ -1,21 +1,14 @@
 import context.{type Context}
+import db/character as character_db
 import gleam/json
-import gleam/list
-import gleam/result
 import lustre/attribute
 import lustre/element
 import lustre/element/html
 import shared/character
-import sql
 import wisp
 
 pub fn serve(ctx: Context) {
-  let assert Ok(chars) =
-    sql.list_characters(ctx.db)
-    |> result.map(fn(returned) {
-      returned.rows
-      |> list.map(fn(row) { character.Character(row.id, row.name) })
-    })
+  let assert Ok(chars) = character_db.list(ctx.db)
 
   let html =
     html.html([], [
