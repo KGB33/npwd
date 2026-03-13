@@ -1,6 +1,5 @@
 import gleam/dynamic/decode
 import gleam/http/response.{type Response}
-import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option}
@@ -24,9 +23,12 @@ pub fn main() -> Nil {
     |> result.try(fn(j) {
       json.parse(j, decode.list(character.character_decoder()))
       |> result.replace_error(Nil)
-    }) |> result.unwrap([])
+    })
+    |> result.unwrap([])
 
   let app = lustre.application(init, update, view)
+
+  // let assert Ok(_) = character_component.register()
   let assert Ok(_) = lustre.start(app, "#app", initial_items)
 
   Nil
@@ -51,6 +53,7 @@ fn init(characters: List(Character)) -> #(Model, Effect(Msg)) {
 }
 
 // Update -------------------------------------------------------------------------------- 
+
 
 type Msg {
   ServerSavedCharacters(Result(Response(String), rsvp.Error))
@@ -94,12 +97,14 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   }
 }
 
+
 fn save_characters(characters: List(Character)) -> Effect(Msg) {
   let body = character.character_list_to_json(characters)
   let url = "/api/characters"
 
   rsvp.post(url, body, rsvp.expect_ok_response(ServerSavedCharacters))
 }
+
 
 // View -------------------------------------------------------------------------------- 
 
@@ -114,7 +119,7 @@ fn view(model: Model) -> Element(Msg) {
 
   html.div([attribute.styles(styles)], [
     html.h1([], [html.text("Characters")]),
-    view_character_list(model.characters),
+    view_character_list(model),
     view_new_character(model.new_character),
     html.div([], [
       html.button(
@@ -146,20 +151,17 @@ fn view_new_character(new_char: String) -> Element(Msg) {
   ])
 }
 
-fn view_character_list(characters: List(Character)) -> Element(Msg) {
-  case characters {
+fn view_character_list(model: Model) -> Element(Msg) {
+  case model.characters {
     [] -> html.p([], [html.text("No dudes yet.")])
     _ -> {
       html.ul(
         [],
-        list.map(characters, fn(c) { html.li([], [view_character(c)]) }),
+        list.map(model.characters, fn(c) {
+          html.li([], [])
+        }),
       )
     }
   }
 }
 
-fn view_character(character: Character) -> Element(Msg) {
-  html.div([attribute.styles([#("display", "flex"), #("gap", "1em")])], [
-    html.span([attribute.style("flex", "1")], [html.text(character.name)]),
-  ])
-}
