@@ -6,6 +6,10 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     devenv.url = "github:cachix/devenv";
     github-actions-nix.url = "github:synapdeck/github-actions-nix";
+    nix-gleam = {
+      url = "github:arnarg/nix-gleam";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {flake-parts, ...}:
@@ -22,7 +26,9 @@
         pkgs,
         system,
         ...
-      }: {
+      }: let
+        buildGleamApplication = inputs'.nix-gleam.packages.buildGleamApplication;
+      in {
         devenv = {
           shells.default = {
             packages = with pkgs; [
@@ -55,6 +61,41 @@
               chmod -R u+w ./.github/workflows
             '';
           };
+
+          client = buildGleamApplication {
+            src = ./client;
+            localPackages = [./shared];
+            target = "erlang";
+            nativeBuildInputs = [pkgs.bun];
+            buildPhase = ''
+              runHook preBuild
+              export REBAR_CACHE_DIR="$TMP/.rebar-cache"
+              gleam run -m lustre/dev build --minify --outdir=./out
+              runHook postBuild
+            '';
+            installPhase = ''
+              runHook preInstall
+              mkdir -p $out
+              cp out/client.js $out/client.js
+              runHook postInstall
+            '';
+          };
+
+          server = buildGleamApplication {
+            src = ./server;
+            localPackages = [./shared];
+            erlangPackage = pkgs.beam28Packages.erlang;
+            rebar3Package = pkgs.beam28Packages.rebar3WithPlugins {
+              plugins = with pkgs.beam28Packages; [pc];
+            };
+            preConfigure = ''
+              cp ${self'.packages.client}/client.js priv/static/client.js
+            '';
+          };
+
+          npwd = pkgs.writeShellScriptBin "npwd" ''
+            exec ${self'.packages.server}/bin/server "$@"
+          '';
         };
         githubActions = {
           enable = true;
