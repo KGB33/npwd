@@ -1,5 +1,5 @@
 import context
-import gleam/erlang/process
+import db
 import gleam/http
 import gleam/json
 import pog
@@ -11,19 +11,10 @@ import wisp/simulate
 import youid/uuid
 
 fn create_test_context() {
-  let name = process.new_name("db-pool")
-  let assert Ok(actor) =
-    pog.default_config(name)
-    |> pog.host("localhost")
-    |> pog.database("test")
-    |> pog.user("kgb33")
-    |> pog.pool_size(15)
-    |> pog.start
-
   let assert Ok(priv_dir) = wisp.priv_directory("server")
   let static_dir = priv_dir <> "/static"
 
-  context.Context(db: actor.data, static_dir: static_dir)
+  context.Context(db: db.connect("TEST_DB_NAME"), static_dir: static_dir)
 }
 
 fn refresh_database(db: pog.Connection) {

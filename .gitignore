@@ -6,6 +6,7 @@ erl_crash.dump
 .direnv
 .devenv
 .envrc
+.env
 
 result
 
