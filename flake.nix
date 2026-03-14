@@ -37,6 +37,7 @@
               enable = true;
               package = pkgs.postgresql_18;
               listen_addresses = "localhost";
+              settings.max_connections = 200;
               initialDatabases =
                 ["dev" "test"]
                 |> map (db: {

@@ -22,13 +22,17 @@ pub fn handle_save(ctx: Context, req: Request) {
 
   case decode.run(json, character.character_decoder()) {
     Ok(chara) -> {
-      case character_db.insert(ctx.db, chara.name) {
-        Ok(c) ->
-          c
-          |> character.character_to_json()
-          |> json.to_string()
-          |> wisp.json_response(201)
-        Error(_) -> wisp.internal_server_error()
+      case chara.name {
+        "" -> wisp.bad_request("Name cannot be empty")
+        _ ->
+          case character_db.insert(ctx.db, chara.name) {
+            Ok(c) ->
+              c
+              |> character.character_to_json()
+              |> json.to_string()
+              |> wisp.json_response(201)
+            Error(_) -> wisp.internal_server_error()
+          }
       }
     }
     Error(e) -> {

@@ -55,6 +55,20 @@ pub fn save_character_test() {
   assert characters.rows == [sql.GetCharactersByIdRow(resp_chara.id, test_name)]
 }
 
+pub fn save_character_empty_name_test() {
+  let payload =
+    json.object([
+      #("name", json.string("")),
+      #("id", json.string(uuid.to_string(uuid.nil))),
+    ])
+  let response =
+    simulate.browser_request(http.Post, "/api/character")
+    |> simulate.json_body(payload)
+    |> router.handle_request(create_test_context)
+
+  assert response.status == 400
+}
+
 pub fn update_character_test() {
   let ctx = create_test_context()
   refresh_database(ctx.db)
