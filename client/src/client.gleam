@@ -91,23 +91,34 @@ fn view(model: Model) -> Element(Msg) {
 
   html.div([attribute.styles(container_styles)], [
     html.div([attribute.styles(left_panel_styles)], [
-      element.element("character-form", [
-        event.on("character-created", {
-          use c <- decode.field("detail", character.character_decoder())
-          decode.success(CharacterCreated(c))
-        }),
-      ], []),
-      element.element("character-list", [
-        attribute.attribute(
-          "characters",
-          json.to_string(json.array(model.characters, character.character_to_json)),
-        ),
-        event.on(
-          "character-deleted",
-          decode.at(["detail", "id"], character.uuid_string_decoder())
-            |> decode.map(CharacterDeleted),
-        ),
-      ], []),
+      element.element(
+        "character-form",
+        [
+          event.on("character-created", {
+            use c <- decode.field("detail", character.character_decoder())
+            decode.success(CharacterCreated(c))
+          }),
+        ],
+        [],
+      ),
+      element.element(
+        "character-list",
+        [
+          attribute.attribute(
+            "characters",
+            json.to_string(json.array(
+              model.characters,
+              character.character_to_json,
+            )),
+          ),
+          event.on(
+            "character-deleted",
+            decode.at(["detail", "id"], character.uuid_string_decoder())
+              |> decode.map(CharacterDeleted),
+          ),
+        ],
+        [],
+      ),
     ]),
     html.div([attribute.styles(right_panel_styles)], []),
   ])

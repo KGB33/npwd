@@ -35,12 +35,16 @@ fn view(model: Model) -> Element(Msg) {
         [],
         list.map(chars, fn(c) {
           html.li([], [
-            element.element("character-entry", [
-              attribute.attribute(
-                "character",
-                json.to_string(character.character_to_json(c)),
-              ),
-            ], []),
+            element.element(
+              "character-entry",
+              [
+                attribute.attribute(
+                  "character",
+                  json.to_string(character.character_to_json(c)),
+                ),
+              ],
+              [],
+            ),
           ])
         }),
       )

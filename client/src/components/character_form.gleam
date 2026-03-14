@@ -29,20 +29,21 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
     UserTypedName(s) -> #(Model(..model, name: s), effect.none())
 
-    Create -> case model.name {
-      "" -> #(model, effect.none())
-      _ -> {
-        let chara = character.Character(id: uuid.nil, name: model.name)
-        #(
-          Model(..model, io_wait: True),
-          rsvp.post(
-            "/api/character",
-            character.character_to_json(chara),
-            rsvp.expect_ok_response(CreateResponse),
-          ),
-        )
+    Create ->
+      case model.name {
+        "" -> #(model, effect.none())
+        _ -> {
+          let chara = character.Character(id: uuid.nil, name: model.name)
+          #(
+            Model(..model, io_wait: True),
+            rsvp.post(
+              "/api/character",
+              character.character_to_json(chara),
+              rsvp.expect_ok_response(CreateResponse),
+            ),
+          )
+        }
       }
-    }
 
     CreateResponse(Ok(resp)) -> {
       case json.parse(resp.body, character.character_decoder()) {
@@ -51,7 +52,11 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           event.emit("character-created", character.character_to_json(created)),
         )
         Error(_) -> #(
-          Model(..model, io_wait: False, error: option.Some("Failed to parse response")),
+          Model(
+            ..model,
+            io_wait: False,
+            error: option.Some("Failed to parse response"),
+          ),
           effect.none(),
         )
       }
@@ -72,10 +77,12 @@ fn view(model: Model) -> Element(Msg) {
       attribute.disabled(model.io_wait),
       event.on_input(UserTypedName),
     ]),
-    html.button(
-      [event.on_click(Create), attribute.disabled(model.io_wait)],
-      [html.text(case model.io_wait { True -> "..." False -> "+ add" })],
-    ),
+    html.button([event.on_click(Create), attribute.disabled(model.io_wait)], [
+      html.text(case model.io_wait {
+        True -> "..."
+        False -> "+ add"
+      }),
+    ]),
     case model.error {
       option.Some(err) ->
         html.span([attribute.style("color", "red")], [html.text(err)])

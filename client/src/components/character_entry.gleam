@@ -36,7 +36,11 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       let url = "/api/character/" <> uuid.to_string(model.c.id)
       #(
         Model(..model, io_wait: True),
-        rsvp.delete(url, json.object([]), rsvp.expect_ok_response(DeleteResponse)),
+        rsvp.delete(
+          url,
+          json.object([]),
+          rsvp.expect_ok_response(DeleteResponse),
+        ),
       )
     }
 
@@ -53,10 +57,12 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 fn view(model: Model) -> Element(Msg) {
   html.div([attribute.styles([#("display", "flex"), #("gap", "1em")])], [
     html.span([attribute.style("flex", "1")], [html.text(model.c.name)]),
-    html.button(
-      [event.on_click(Delete), attribute.disabled(model.io_wait)],
-      [html.text(case model.io_wait { True -> "..." False -> "🗑️" })],
-    ),
+    html.button([event.on_click(Delete), attribute.disabled(model.io_wait)], [
+      html.text(case model.io_wait {
+        True -> "..."
+        False -> "🗑️"
+      }),
+    ]),
   ])
 }
 
