@@ -13,4 +13,5 @@ result
 # Generated Client code
 server/priv/static/client.js
 server/priv/static/index.html
+client/dist/
 
