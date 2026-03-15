@@ -3,6 +3,8 @@ import db
 import db/entry as entry_db
 import gleam/dynamic/decode
 import gleam/json
+import gleam/string
+import glogg/logger
 import handlers/common.{require_id}
 import shared/entry
 import wisp.{type Request}
@@ -18,7 +20,9 @@ pub fn handle_list(ctx: Context, _req: Request, character_id: String) {
       |> wisp.json_response(200)
     }
     Error(e) -> {
-      echo e
+      logger.error(ctx.logger, "Failed to list entries", [
+        logger.string("error", string.inspect(e)),
+      ])
       wisp.internal_server_error()
     }
   }
@@ -43,7 +47,9 @@ pub fn handle_save(ctx: Context, req: Request) {
       }
     }
     Error(e) -> {
-      echo e
+      logger.warning(ctx.logger, "JSON decode failed", [
+        logger.string("error", string.inspect(e)),
+      ])
       wisp.bad_request("Decode Failed")
     }
   }
@@ -56,7 +62,9 @@ pub fn handle_delete(ctx: Context, _req: Request, id: String) {
     Ok(Nil) -> wisp.ok()
     Error(db.NotFound) -> wisp.not_found()
     Error(e) -> {
-      echo e
+      logger.error(ctx.logger, "Failed to delete entry", [
+        logger.string("error", string.inspect(e)),
+      ])
       wisp.internal_server_error()
     }
   }

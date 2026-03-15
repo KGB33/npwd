@@ -51,6 +51,20 @@
                   initialSQL = builtins.readFile ./schema.sql;
                 });
             };
+            services.opentelemetry-collector = {
+              enable = true;
+              settings = {
+                receivers.otlp.protocols = {
+                  grpc.endpoint = "localhost:4317";
+                  http.endpoint = "localhost:4318";
+                };
+                exporters.debug.verbosity = "detailed";
+                service.pipelines.traces = {
+                  receivers = ["otlp"];
+                  exporters = ["debug"];
+                };
+              };
+            };
           };
         };
         packages = {

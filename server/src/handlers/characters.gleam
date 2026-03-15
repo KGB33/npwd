@@ -3,6 +3,8 @@ import db
 import db/character as character_db
 import gleam/dynamic/decode
 import gleam/json
+import gleam/string
+import glogg/logger
 import handlers/common.{require_id}
 import shared/character
 import wisp.{type Request}
@@ -26,8 +28,9 @@ pub fn handle_save(ctx: Context, req: Request) {
       }
     }
     Error(e) -> {
-      echo e
-      // TODO: Add real logging
+      logger.warning(ctx.logger, "JSON decode failed", [
+        logger.string("error", string.inspect(e)),
+      ])
       wisp.bad_request("Decode Failed")
     }
   }
@@ -42,8 +45,9 @@ pub fn handle_list(ctx: Context, _req: Request) {
       |> wisp.json_response(200)
     }
     Error(e) -> {
-      echo e
-      // TODO: Add real logging
+      logger.error(ctx.logger, "Failed to list characters", [
+        logger.string("error", string.inspect(e)),
+      ])
       wisp.internal_server_error()
     }
   }
@@ -67,8 +71,10 @@ pub fn handle_update(ctx: Context, req: Request, id: String) {
         Error(_) -> wisp.internal_server_error()
       }
     }
-    Error(err) -> {
-      echo err
+    Error(e) -> {
+      logger.warning(ctx.logger, "JSON decode failed on update", [
+        logger.string("error", string.inspect(e)),
+      ])
       wisp.bad_request("Decode Failed")
     }
   }
@@ -81,7 +87,9 @@ pub fn handle_delete(ctx: Context, _req: Request, id: String) {
     Ok(Nil) -> wisp.ok()
     Error(db.NotFound) -> wisp.not_found()
     Error(e) -> {
-      echo e
+      logger.error(ctx.logger, "Failed to delete character", [
+        logger.string("error", string.inspect(e)),
+      ])
       wisp.internal_server_error()
     }
   }

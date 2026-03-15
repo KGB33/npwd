@@ -1,5 +1,7 @@
 import context.{type Context}
 import gleam/http
+import glotel/span
+import glotel/span_kind
 import handlers/characters
 import handlers/entries
 import handlers/index
@@ -32,11 +34,22 @@ fn middleware(
   ctx: Context,
   next: fn(Request) -> Response,
 ) -> Response {
+  let route = http.method_to_string(req.method) <> " " <> req.path
+  use span_ctx <- span.new_of_kind(span_kind.Server, route, [
+    #("http.method", http.method_to_string(req.method)),
+    #("http.route", req.path),
+  ])
+  let _propagated = span.extract_values(req.headers)
   let req = wisp.method_override(req)
   use <- wisp.log_request(req)
-  use <- wisp.rescue_crashes
-  use req <- wisp.handle_head(req)
-  use <- wisp.serve_static(req, under: "/static", from: ctx.static_dir)
-
-  next(req)
+  let resp = wisp.rescue_crashes(fn() {
+    use req <- wisp.handle_head(req)
+    use <- wisp.serve_static(req, under: "/static", from: ctx.static_dir)
+    next(req)
+  })
+  case resp.status >= 500 {
+    True -> span.set_error(span_ctx)
+    False -> Nil
+  }
+  resp
 }

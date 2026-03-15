@@ -24,6 +24,11 @@ wisp = ">= 2.2.0 and < 3.0.0"
 pog = ">= 4.1.0 and < 5.0.0"
 envoy = ">= 1.0.2 and < 2.0.0"
 youid = ">= 1.5.1 and < 2.0.0"
+glogg = ">= 1.3.0 and < 2.0.0"
+glotel = ">= 0.1.0 and < 1.0.0"
+
+[erlang]
+extra_applications = ["opentelemetry_exporter", "opentelemetry"]
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
