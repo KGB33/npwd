@@ -33,7 +33,7 @@ pub type Msg {
   DeleteResponse(uuid.Uuid, Result(Response(String), rsvp.Error))
 }
 
-fn init(_) -> #(Model, Effect(Msg)) {
+pub fn init(_) -> #(Model, Effect(Msg)) {
   #(
     Model(
       character: character.Character(id: uuid.nil, name: ""),
@@ -50,7 +50,7 @@ fn fetch_entries(character_id: uuid.Uuid) -> Effect(Msg) {
   rsvp.get(url, rsvp.expect_ok_response(EntriesLoaded))
 }
 
-fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
+pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
     SetCharacter(c) -> #(
       Model(..model, character: c, entries: []),
@@ -126,7 +126,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   }
 }
 
-fn view(model: Model) -> Element(Msg) {
+pub fn view(model: Model) -> Element(Msg) {
   html.div(
     [
       attribute.styles([

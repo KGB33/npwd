@@ -21,11 +21,11 @@ pub type Msg {
   CreateResponse(Result(Response(String), rsvp.Error))
 }
 
-fn init(_) -> #(Model, Effect(Msg)) {
+pub fn init(_) -> #(Model, Effect(Msg)) {
   #(Model(name: "", io_wait: False, error: option.None), effect.none())
 }
 
-fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
+pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
     UserTypedName(s) -> #(Model(..model, name: s), effect.none())
 
@@ -69,7 +69,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   }
 }
 
-fn view(model: Model) -> Element(Msg) {
+pub fn view(model: Model) -> Element(Msg) {
   html.div([], [
     html.input([
       attribute.placeholder("Enter Name"),

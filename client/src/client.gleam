@@ -41,26 +41,26 @@ pub fn main() -> Nil {
 
 // Model -----------------------------------------------------------------------
 
-type Model {
+pub type Model {
   Model(
     characters: List(character.Character),
     selected_character: Option(character.Character),
   )
 }
 
-fn init(characters: List(character.Character)) -> #(Model, Effect(Msg)) {
+pub fn init(characters: List(character.Character)) -> #(Model, Effect(Msg)) {
   #(Model(characters:, selected_character: option.None), effect.none())
 }
 
 // Update ----------------------------------------------------------------------
 
-type Msg {
+pub type Msg {
   CharacterCreated(character.Character)
   CharacterDeleted(uuid.Uuid)
   CharacterSelected(character.Character)
 }
 
-fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
+pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
     CharacterCreated(c) -> #(
       Model(..model, characters: list.append(model.characters, [c])),
@@ -85,7 +85,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
 // View ------------------------------------------------------------------------
 
-fn view(model: Model) -> Element(Msg) {
+pub fn view(model: Model) -> Element(Msg) {
   let container_styles = [
     #("display", "flex"),
     #("flex-direction", "row"),
