@@ -1,6 +1,7 @@
 import context.{type Context}
 import gleam/http
 import handlers/characters
+import handlers/entries
 import handlers/index
 import wisp.{type Request, type Response}
 
@@ -16,6 +17,11 @@ pub fn handle_request(req: Request, mk_context: fn() -> Context) {
       characters.handle_update(ctx, req, id)
     http.Delete, ["api", "character", id] ->
       characters.handle_delete(ctx, req, id)
+    // Entries
+    http.Get, ["api", "character", id, "entries"] ->
+      entries.handle_list(ctx, req, id)
+    http.Post, ["api", "entry"] -> entries.handle_save(ctx, req)
+    http.Delete, ["api", "entry", id] -> entries.handle_delete(ctx, req, id)
     http.Get, _ -> index.serve(ctx)
     _, _ -> wisp.not_found()
   }

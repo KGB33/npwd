@@ -1,33 +1,12 @@
-import context
-import db
 import gleam/http
 import gleam/json
 import pog
 import router
 import shared/character
 import sql
-import wisp
+import test_helpers.{create_test_context, refresh_database}
 import wisp/simulate
 import youid/uuid
-
-fn create_test_context() {
-  let assert Ok(priv_dir) = wisp.priv_directory("server")
-  let static_dir = priv_dir <> "/static"
-
-  context.Context(db: db.connect("TEST_DB_NAME"), static_dir: static_dir)
-}
-
-fn refresh_database(db: pog.Connection) {
-  let assert Ok(_) =
-    pog.query(
-      // sql
-      "
-      DELETE FROM characters;
-    ",
-    )
-    |> pog.execute(db)
-  Nil
-}
 
 pub fn save_character_test() {
   let ctx = create_test_context()
@@ -41,7 +20,7 @@ pub fn save_character_test() {
   let response =
     simulate.browser_request(http.Post, "/api/character")
     |> simulate.json_body(payload)
-    |> router.handle_request(create_test_context)
+    |> router.handle_request(fn() { ctx })
 
   assert response.status == 201
   let assert Ok(resp_chara) =
@@ -56,6 +35,7 @@ pub fn save_character_test() {
 }
 
 pub fn save_character_empty_name_test() {
+  let ctx = create_test_context()
   let payload =
     json.object([
       #("name", json.string("")),
@@ -64,7 +44,7 @@ pub fn save_character_empty_name_test() {
   let response =
     simulate.browser_request(http.Post, "/api/character")
     |> simulate.json_body(payload)
-    |> router.handle_request(create_test_context)
+    |> router.handle_request(fn() { ctx })
 
   assert response.status == 400
 }
@@ -88,7 +68,7 @@ pub fn update_character_test() {
       "/api/character/" <> uuid.to_string(id),
     )
     |> simulate.json_body(payload)
-    |> router.handle_request(create_test_context)
+    |> router.handle_request(fn() { ctx })
 
   assert response.status == 200
 
@@ -119,7 +99,7 @@ pub fn delete_character_test() {
       http.Delete,
       "/api/character/" <> uuid.to_string(id),
     )
-    |> router.handle_request(create_test_context)
+    |> router.handle_request(fn() { ctx })
 
   assert response.status == 200
 

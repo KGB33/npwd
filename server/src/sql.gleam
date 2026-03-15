@@ -44,6 +44,41 @@ RETURNING *;
   |> pog.execute(db)
 }
 
+/// A row you get from running the `delete_entry` query
+/// defined in `./src/sql/delete_entry.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type DeleteEntryRow {
+  DeleteEntryRow(id: Uuid, character_id: Uuid, text: String)
+}
+
+/// Runs the `delete_entry` query
+/// defined in `./src/sql/delete_entry.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn delete_entry(
+  db: pog.Connection,
+  arg_1: Uuid,
+) -> Result(pog.Returned(DeleteEntryRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, uuid_decoder())
+    use character_id <- decode.field(1, uuid_decoder())
+    use text <- decode.field(2, decode.string)
+    decode.success(DeleteEntryRow(id:, character_id:, text:))
+  }
+
+  "DELETE FROM entries WHERE id = $1 RETURNING *;
+"
+  |> pog.query
+  |> pog.parameter(pog.text(uuid.to_string(arg_1)))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
 /// A row you get from running the `get_characters_by_id` query
 /// defined in `./src/sql/get_characters_by_id.sql`.
 ///
@@ -165,6 +200,43 @@ returning *
   |> pog.execute(db)
 }
 
+/// A row you get from running the `insert_entry` query
+/// defined in `./src/sql/insert_entry.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type InsertEntryRow {
+  InsertEntryRow(id: Uuid, character_id: Uuid, text: String)
+}
+
+/// Runs the `insert_entry` query
+/// defined in `./src/sql/insert_entry.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn insert_entry(
+  db: pog.Connection,
+  arg_1: Uuid,
+  arg_2: String,
+) -> Result(pog.Returned(InsertEntryRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, uuid_decoder())
+    use character_id <- decode.field(1, uuid_decoder())
+    use text <- decode.field(2, decode.string)
+    decode.success(InsertEntryRow(id:, character_id:, text:))
+  }
+
+  "INSERT INTO entries (character_id, text) VALUES ($1, $2) RETURNING *;
+"
+  |> pog.query
+  |> pog.parameter(pog.text(uuid.to_string(arg_1)))
+  |> pog.parameter(pog.text(arg_2))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
 /// A row you get from running the `list_characters` query
 /// defined in `./src/sql/list_characters.sql`.
 ///
@@ -193,6 +265,41 @@ pub fn list_characters(
   "select * from characters;
 "
   |> pog.query
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// A row you get from running the `list_entries_by_character` query
+/// defined in `./src/sql/list_entries_by_character.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type ListEntriesByCharacterRow {
+  ListEntriesByCharacterRow(id: Uuid, character_id: Uuid, text: String)
+}
+
+/// Runs the `list_entries_by_character` query
+/// defined in `./src/sql/list_entries_by_character.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn list_entries_by_character(
+  db: pog.Connection,
+  arg_1: Uuid,
+) -> Result(pog.Returned(ListEntriesByCharacterRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, uuid_decoder())
+    use character_id <- decode.field(1, uuid_decoder())
+    use text <- decode.field(2, decode.string)
+    decode.success(ListEntriesByCharacterRow(id:, character_id:, text:))
+  }
+
+  "SELECT * FROM entries WHERE character_id = $1 ORDER BY id;
+"
+  |> pog.query
+  |> pog.parameter(pog.text(uuid.to_string(arg_1)))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }

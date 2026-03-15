@@ -17,6 +17,7 @@ pub type Model {
 
 pub type Msg {
   SetCharacter(Character)
+  SelectCharacter
   Delete
   DeleteResponse(Result(Response(String), rsvp.Error))
 }
@@ -31,6 +32,11 @@ fn init(_) -> #(Model, Effect(Msg)) {
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
     SetCharacter(c) -> #(Model(..model, c: c), effect.none())
+
+    SelectCharacter -> {
+      let payload = character.character_to_json(model.c)
+      #(model, event.emit("character-selected", payload))
+    }
 
     Delete -> {
       let url = "/api/character/" <> uuid.to_string(model.c.id)
@@ -56,7 +62,9 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
 fn view(model: Model) -> Element(Msg) {
   html.div([attribute.styles([#("display", "flex"), #("gap", "1em")])], [
-    html.span([attribute.style("flex", "1")], [html.text(model.c.name)]),
+    html.span([attribute.style("flex", "1"), event.on_click(SelectCharacter)], [
+      html.text(model.c.name),
+    ]),
     html.button([event.on_click(Delete), attribute.disabled(model.io_wait)], [
       html.text(case model.io_wait {
         True -> "..."

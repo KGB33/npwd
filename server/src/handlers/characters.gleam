@@ -3,19 +3,9 @@ import db
 import db/character as character_db
 import gleam/dynamic/decode
 import gleam/json
+import handlers/common.{require_id}
 import shared/character
 import wisp.{type Request}
-import youid/uuid
-
-pub fn require_id(
-  id: String,
-  next: fn(uuid.Uuid) -> wisp.Response,
-) -> wisp.Response {
-  case uuid.from_string(id) {
-    Ok(uuid) -> next(uuid)
-    Error(_) -> wisp.bad_request("Invalid UUID")
-  }
-}
 
 pub fn handle_save(ctx: Context, req: Request) {
   use json <- wisp.require_json(req)
