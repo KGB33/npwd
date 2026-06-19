@@ -5,10 +5,11 @@ import gleam/erlang/application
 import gleam/http
 import gleam/http/request
 import gleam/httpc
-import gleam/json
+import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
+import shared
 import simplifile
 
 pub type Config {
@@ -28,6 +29,7 @@ pub type DbError {
   QueryError(detail: String)
   ResultDecodeError
   NoResult
+  NotFound
   SchemaError
 }
 
@@ -57,7 +59,11 @@ fn statement_decoder() -> Decoder(Statement) {
   decode.success(Statement(status:, detail:, result:))
 }
 
-fn run(config: Config, surql: String) -> Result(List(Statement), DbError) {
+fn run(
+  config: Config,
+  surql: String,
+  vars: List(#(String, Json)),
+) -> Result(List(Statement), DbError) {
   let credentials =
     bit_array.base64_encode(
       bit_array.from_string(config.user <> ":" <> config.password),
@@ -70,6 +76,7 @@ fn run(config: Config, surql: String) -> Result(List(Statement), DbError) {
     |> request.set_host(config.host)
     |> request.set_port(config.port)
     |> request.set_path("/sql")
+    |> request.set_query(vars_query(vars))
     |> request.set_header("accept", "application/json")
     |> request.set_header("content-type", "text/plain")
     |> request.set_header("surreal-ns", config.namespace)
@@ -88,8 +95,27 @@ fn run(config: Config, surql: String) -> Result(List(Statement), DbError) {
   }
 }
 
+fn vars_query(vars: List(#(String, Json))) -> List(#(String, String)) {
+  list.map(vars, fn(v) { #(v.0, json.to_string(v.1)) })
+}
+
+fn last_result(
+  statements: List(Statement),
+  decoder: Decoder(a),
+) -> Result(a, DbError) {
+  use last <- result.try(
+    list.last(statements) |> result.replace_error(NoResult),
+  )
+  case last.status, last.result {
+    "OK", Some(value) ->
+      decode.run(value, decoder) |> result.replace_error(ResultDecodeError)
+    "OK", None -> Error(NoResult)
+    _, _ -> Error(QueryError(last.detail))
+  }
+}
+
 pub fn execute(config: Config, surql: String) -> Result(Nil, DbError) {
-  use statements <- result.try(run(config, surql))
+  use statements <- result.try(run(config, surql, []))
   case list.find(statements, fn(s) { s.status != "OK" }) {
     Ok(failed) -> Error(QueryError(failed.detail))
     Error(_) -> Ok(Nil)
@@ -101,16 +127,96 @@ pub fn query(
   surql: String,
   decoder: Decoder(a),
 ) -> Result(a, DbError) {
-  use statements <- result.try(run(config, surql))
-  use last <- result.try(
-    list.last(statements) |> result.replace_error(NoResult),
-  )
-  case last.status, last.result {
-    "OK", Some(value) ->
-      decode.run(value, decoder) |> result.replace_error(ResultDecodeError)
-    "OK", None -> Error(NoResult)
-    _, _ -> Error(QueryError(last.detail))
+  use statements <- result.try(run(config, surql, []))
+  last_result(statements, decoder)
+}
+
+fn query_vars(
+  config: Config,
+  surql: String,
+  vars: List(#(String, Json)),
+  decoder: Decoder(a),
+) -> Result(a, DbError) {
+  use statements <- result.try(run(config, surql, vars))
+  last_result(statements, decoder)
+}
+
+fn query_first(
+  config: Config,
+  surql: String,
+  vars: List(#(String, Json)),
+  decoder: Decoder(a),
+) -> Result(a, DbError) {
+  use rows <- result.try(query_vars(config, surql, vars, decode.list(decoder)))
+  case rows {
+    [first, ..] -> Ok(first)
+    [] -> Error(NotFound)
   }
+}
+
+pub fn list_universes(
+  config: Config,
+) -> Result(List(shared.Universe), DbError) {
+  query(
+    config,
+    "SELECT * FROM universe ORDER BY name",
+    decode.list(shared.universe_decoder()),
+  )
+}
+
+pub fn create_universe(
+  config: Config,
+  name: String,
+  description: String,
+) -> Result(shared.Universe, DbError) {
+  query_first(
+    config,
+    "CREATE universe SET name = $name, description = $description",
+    [#("name", json.string(name)), #("description", json.string(description))],
+    shared.universe_decoder(),
+  )
+}
+
+pub fn get_universe(
+  config: Config,
+  id: String,
+) -> Result(shared.Universe, DbError) {
+  query_first(
+    config,
+    "SELECT * FROM type::thing($id)",
+    [#("id", json.string(id))],
+    shared.universe_decoder(),
+  )
+}
+
+pub fn update_universe(
+  config: Config,
+  id: String,
+  name: String,
+  description: String,
+) -> Result(shared.Universe, DbError) {
+  query_first(
+    config,
+    "UPDATE type::thing($id) MERGE { name: $name, description: $description }",
+    [
+      #("id", json.string(id)),
+      #("name", json.string(name)),
+      #("description", json.string(description)),
+    ],
+    shared.universe_decoder(),
+  )
+}
+
+pub fn delete_universe(
+  config: Config,
+  id: String,
+) -> Result(shared.Universe, DbError) {
+  query_first(
+    config,
+    "DELETE type::thing($id) RETURN BEFORE",
+    [#("id", json.string(id))],
+    shared.universe_decoder(),
+  )
 }
 
 pub fn apply_schema(config: Config) -> Result(Nil, DbError) {

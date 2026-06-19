@@ -1,16 +1,9 @@
 import gleam/dynamic/decode
-import gleam/int
+import helpers
 import server/db
 
 fn fresh_config() -> db.Config {
-  db.Config(
-    host: "127.0.0.1",
-    port: 8001,
-    namespace: "test",
-    database: "t" <> int.to_string(int.random(1_000_000_000)),
-    user: "root",
-    password: "root",
-  )
+  helpers.fresh_config()
 }
 
 fn names_decoder() {
