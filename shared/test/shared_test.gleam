@@ -30,6 +30,26 @@ pub fn edge_round_trip_test() {
   )
 }
 
+pub fn graph_round_trip_test() {
+  round_trip(
+    shared.graph_to_json,
+    shared.graph_decoder(),
+    shared.Graph(
+      [
+        shared.Node("n1", "u1", shared.Place, "Shire", "Hobbit homeland"),
+        shared.Node(
+          "n2",
+          "u1",
+          shared.Person(shared.Date(2890, 9, 22), "male"),
+          "Frodo",
+          "Ring-bearer",
+        ),
+      ],
+      [shared.Edge("e1", "u1", "lives_in", "n2", "n1")],
+    ),
+  )
+}
+
 pub fn person_node_round_trip_test() {
   round_trip(
     shared.node_to_json,

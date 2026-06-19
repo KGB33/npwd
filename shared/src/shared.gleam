@@ -45,6 +45,10 @@ pub type Edge {
   )
 }
 
+pub type Graph {
+  Graph(nodes: List(Node), edges: List(Edge))
+}
+
 pub fn date_to_json(d: Date) -> Json {
   json.object([
     #("year", json.int(d.year)),
@@ -166,6 +170,19 @@ pub fn node_decoder() -> Decoder(Node) {
   use description <- decode.field("description", decode.string)
   use kind <- decode.then(node_kind_decoder())
   decode.success(Node(id, universe, kind, name, description))
+}
+
+pub fn graph_to_json(g: Graph) -> Json {
+  json.object([
+    #("nodes", json.array(g.nodes, node_to_json)),
+    #("edges", json.array(g.edges, edge_to_json)),
+  ])
+}
+
+pub fn graph_decoder() -> Decoder(Graph) {
+  use nodes <- decode.field("nodes", decode.list(node_decoder()))
+  use edges <- decode.field("edges", decode.list(edge_decoder()))
+  decode.success(Graph(nodes, edges))
 }
 
 pub fn edge_to_json(e: Edge) -> Json {
