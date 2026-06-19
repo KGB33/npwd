@@ -121,36 +121,51 @@ fn kind_fields(kind: NodeKind) -> List(#(String, Json)) {
   }
 }
 
-pub fn node_decoder() -> Decoder(Node) {
-  use id <- decode.field("id", decode.string)
-  use universe <- decode.field("universe", decode.string)
-  use name <- decode.field("name", decode.string)
-  use description <- decode.field("description", decode.string)
+pub fn node_content_to_json(
+  universe: String,
+  name: String,
+  description: String,
+  kind: NodeKind,
+) -> Json {
+  json.object([
+    #("universe", json.string(universe)),
+    #("name", json.string(name)),
+    #("description", json.string(description)),
+    ..kind_fields(kind)
+  ])
+}
+
+pub fn node_kind_decoder() -> Decoder(NodeKind) {
   use kind <- decode.field("kind", decode.string)
   case kind {
     "Person" -> {
       use dob <- decode.field("dob", date_decoder())
       use gender <- decode.field("gender", decode.string)
-      decode.success(Node(id, universe, Person(dob, gender), name, description))
+      decode.success(Person(dob, gender))
     }
-    "Place" -> decode.success(Node(id, universe, Place, name, description))
+    "Place" -> decode.success(Place)
     "Event" -> {
       use when <- decode.field("when", date_decoder())
-      decode.success(Node(id, universe, Event(when), name, description))
+      decode.success(Event(when))
     }
     "Generic" -> {
       use fields <- decode.field(
         "fields",
         decode.dict(decode.string, field_value_decoder()),
       )
-      decode.success(Node(id, universe, Generic(fields), name, description))
+      decode.success(Generic(fields))
     }
-    other ->
-      decode.failure(
-        Node(id, universe, Place, name, description),
-        "kind " <> other,
-      )
+    other -> decode.failure(Place, "kind " <> other)
   }
+}
+
+pub fn node_decoder() -> Decoder(Node) {
+  use id <- decode.field("id", decode.string)
+  use universe <- decode.field("universe", decode.string)
+  use name <- decode.field("name", decode.string)
+  use description <- decode.field("description", decode.string)
+  use kind <- decode.then(node_kind_decoder())
+  decode.success(Node(id, universe, kind, name, description))
 }
 
 pub fn edge_to_json(e: Edge) -> Json {
