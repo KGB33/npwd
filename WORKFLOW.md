@@ -146,10 +146,11 @@ repo root, but this is a **three-package monorepo**. Fix:
 - [x] Server: CRUD scoped to universe, `kind` + per-kind fields; tests.
 - [x] Client: node list + create/edit views per kind.
 
-### M3 — Edges / relationships
-- [ ] Server: directed edges via `RELATE node->relationship->node` between any two nodes;
+### M3 — Edges / relationships ✅
+- [x] Server: directed edges via `RELATE node->relationship->node` between any two nodes;
       CRUD + tests.
-- [ ] Client: relationship create/edit between nodes.
+- [x] Client: relationship create/delete between nodes (no edit — RELATE endpoints are
+      immutable; re-create to change).
 
 ### M4 — Filterable relationship graph (main piece)
 - [ ] Server: graph endpoint returning the filtered subgraph (nodes + edges) for a
@@ -239,3 +240,26 @@ Append a dated line as milestones complete; update the checkboxes above.
     string rows (add/remove); empty keys are dropped when building the body.
     `node_body` is public so the body-building is unit-tested directly. Same
     display-only discipline: every node mutation re-fetches the universe's nodes.
+- 2026-06-19 — **M3 complete** (branch `m3-edges`, 89 tests passing: shared 8,
+  server 54, client 27). The `Edge` type + codec already lived in `shared` (from M0);
+  M3 added the DB/REST/client layers. Decisions, verified empirically against a live
+  SurrealDB before writing Gleam:
+  - **`RELATE` won't parse `type::thing($x)` inline as an endpoint** — bind the node ids
+    as string vars and convert with `LET $f = type::thing($from); LET $t = …;
+    RELATE $f->relationship->$t CONTENT { universe: type::thing($u), relationship: $rel }`.
+    `last_result` picks the trailing RELATE return.
+  - **`in`/`out` vs `from`/`to`:** SurrealDB relations store endpoints as `in`/`out`;
+    the domain `Edge` uses `from`/`to`. SELECT/RELATE alias them (`in AS from, out AS to`)
+    so `shared.edge_decoder` reads them directly. **DELETE is the exception** — only
+    `RETURN BEFORE` yields the pre-delete row (a field-list RETURN evaluates *after*
+    deletion → nulls), and BEFORE is unaliased, so `delete_edge` uses a small private
+    `edge_before_decoder` reading raw `in`/`out`.
+  - **Universe-scoped like nodes:** routes nest `/universes/:uid/edges[/:eid]` (matched
+    before the universes catch-all, after nodes); list/get/delete carry
+    `WHERE universe = type::thing($u)` → wrong-universe access is 404 (tested). The
+    `relationship` table is `TYPE RELATION SCHEMALESS` in `schema.surql`.
+  - **No edge update** (server or client): RELATE endpoints (`in`/`out`) are immutable in
+    SurrealDB, so an "edit" is delete + re-create. Kept edges to create/list/get/delete.
+  - **Client:** selecting a universe now `effect.batch`es node + edge loads. The edge form
+    has a relationship text input and from/to `<select>`s populated from the loaded nodes;
+    edge rows resolve node ids back to names. `edge_body` is public for direct unit tests.
