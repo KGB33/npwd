@@ -1,8 +1,10 @@
 import gleam/http.{Get}
 import gleam/json
+import server/db
+import server/universes
 import wisp.{type Request, type Response}
 
-pub fn handle_request(req: Request) -> Response {
+pub fn handle_request(config: db.Config, req: Request) -> Response {
   use <- wisp.log_request(req)
   use <- wisp.rescue_crashes
   use req <- wisp.handle_head(req)
@@ -10,6 +12,7 @@ pub fn handle_request(req: Request) -> Response {
 
   case wisp.path_segments(req) {
     ["health"] -> health(req)
+    ["universes", ..rest] -> universes.handle(config, req, rest)
     _ -> wisp.not_found()
   }
 }

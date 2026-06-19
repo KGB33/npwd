@@ -7,11 +7,12 @@ import wisp/wisp_mist
 
 pub fn main() -> Nil {
   wisp.configure_logger()
-  let _ = db.apply_schema(db.default_config())
+  let config = db.default_config()
+  let _ = db.apply_schema(config)
   let secret_key_base = wisp.random_string(64)
 
   let assert Ok(_) =
-    wisp_mist.handler(router.handle_request, secret_key_base)
+    wisp_mist.handler(router.handle_request(config, _), secret_key_base)
     |> mist.new
     |> mist.port(8000)
     |> mist.start
