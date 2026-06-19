@@ -14,10 +14,35 @@ jobs:
       - uses: actions/checkout@v6
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "29"
+          otp-version: "27"
           gleam-version: "1.17.0"
           rebar3-version: "3"
-          # elixir-version: "1"
-      - run: gleam deps download
-      - run: gleam test
-      - run: gleam format --check src test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Start SurrealDB
+        run: |
+          docker run -d --name surreal -p 8001:8000 surrealdb/surrealdb:v2.6.1 \
+            start --user root --pass root --bind 0.0.0.0:8000 memory
+          for _ in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8001/health && break
+            sleep 1
+          done
+
+      - name: shared
+        working-directory: shared
+        run: |
+          gleam format --check src test
+          gleam test
+
+      - name: server
+        working-directory: server
+        run: |
+          gleam format --check src test
+          gleam test
+
+      - name: client
+        working-directory: client
+        run: |
+          gleam format --check src test
+          gleam test
