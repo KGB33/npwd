@@ -124,16 +124,17 @@ repo root, but this is a **three-package monorepo**. Fix:
 
 ## Milestones (each independently shippable, test-first)
 
-### M0 — Foundation & wiring
-- [ ] Add dependencies to all three packages (above).
-- [ ] `shared`: domain types (`Universe`, `Node`, `NodeKind`, `Edge`, id types) + JSON
-      codecs, with round-trip tests.
-- [ ] `server`: wisp router on mist, health endpoint, static-file serving for client
+### M0 — Foundation & wiring ✅
+- [x] Add dependencies to all three packages (above).
+- [x] `shared`: domain types (`Universe`, `Node`, `NodeKind`, `Edge`, `Date`,
+      `FieldValue`) + JSON codecs, with round-trip tests.
+- [x] `server`: wisp router on mist, health endpoint, static-file serving for client
       bundle.
-- [ ] `server`: SurrealDB connection (pin driver or use HTTP fallback), `schema.surql`
+- [x] `server`: SurrealDB connection (HTTP `/sql` fallback), `schema.surql`
       `DEFINE`s applied at startup, `db.gleam` query wrapper + in-memory test harness.
-- [ ] `client`: Lustre MVU skeleton talking to server via `lustre_http`.
-- [ ] Fix CI to run per-package + add Postgres service container.
+- [x] `client`: Lustre MVU skeleton talking to server via `rsvp` (replaces the
+      now-superseded `lustre_http`).
+- [x] Fix CI to run per-package + add in-memory SurrealDB container.
 
 ### M1 — Universes
 (Everything is scoped to a universe, so this is first.)
@@ -179,3 +180,21 @@ Append a dated line as milestones complete; update the checkboxes above.
   added a community SurrealDB driver (HTTP `/sql` fallback) and an in-memory test harness.
   Testing now leans on a centralized `db.gleam` query wrapper since queries aren't
   compiler-checked. Driver-vs-HTTP pinned in M0.
+- 2026-06-19 — **M0 complete** (branch `m0-foundation`, 20 tests passing).
+  Decisions made while implementing:
+  - **DB access = HTTP `/sql`**, not a community driver. The wrapper posts SurrealQL to
+    `/sql` with root basic-auth and `surreal-ns`/`surreal-db` headers; fresh ns/db
+    auto-create under root, which is what makes per-test isolation cheap.
+  - **gleam_json 3.x / gleam_stdlib 1.x** — the new `gleam/dynamic/decode` API. (json 2.x
+    uses the old `dynamic.Decoder` API and will not compile against stdlib 1.x.)
+  - **`FieldValue`** scalar (`String|Int|Float|Bool`) backs `Generic` node fields instead
+    of raw `Json`, because `Json` is encode-only and can't round-trip through a decoder.
+  - **`rsvp`** is the client HTTP lib (maintained for Lustre 5); `lustre_http` is superseded.
+  - **Client tests** use `lustre/dev/simulate` + `lustre/dev/query`; note `query.test_id`
+    matches the `data-test-id` attribute (hyphenated).
+  - **schema.surql lives in `server/priv/`** (not `server/`) so `priv_directory` finds it
+    at runtime and in tests.
+  - **Dev env:** `flake.nix` now ships erlang_27, rebar3, nodejs, surrealdb (surrealdb is
+    BSL-licensed → allowed via a narrow `allowUnfreePredicate`). Local tests need a
+    SurrealDB on `127.0.0.1:8001`: `surreal start --user root --pass root --bind
+    127.0.0.1:8001 memory`.
