@@ -281,6 +281,10 @@ fn do_render_graph(_data: String) -> Nil {
   Nil
 }
 
+pub fn edge_submittable(form: EdgeForm) -> Bool {
+  form.from != "" && form.to != ""
+}
+
 pub fn edge_body(form: EdgeForm) -> Json {
   json.object([
     #("relationship", json.string(form.relationship)),
@@ -612,7 +616,11 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       Model(..model, edge_form: EdgeForm(..model.edge_form, to:)),
       effect.none(),
     )
-    EdgeSubmitted -> #(model, save_edge(model))
+    EdgeSubmitted ->
+      case edge_submittable(model.edge_form) {
+        True -> #(model, save_edge(model))
+        False -> #(model, effect.none())
+      }
     EdgeSaved(Ok(_)) ->
       case model.selected {
         Some(universe) -> #(
@@ -970,6 +978,11 @@ fn node_select(
   nodes: Remote(List(shared.Node)),
   msg: fn(String) -> Msg,
 ) -> Element(Msg) {
+  let placeholder =
+    html.option(
+      [attribute.value(""), attribute.selected(current == "")],
+      "Choose a node",
+    )
   let options = case nodes {
     Loaded(list) ->
       list.map(list, fn(n) {
@@ -982,7 +995,7 @@ fn node_select(
   }
   html.select(
     [attribute.attribute("data-test-id", test_id), event.on_change(msg)],
-    options,
+    [placeholder, ..options],
   )
 }
 

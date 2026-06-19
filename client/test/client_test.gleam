@@ -223,6 +223,26 @@ pub fn edge_body_test() {
   assert json.to_string(client.edge_body(form)) == json.to_string(expected)
 }
 
+pub fn edge_submittable_requires_from_and_to_test() {
+  assert client.edge_submittable(client.EdgeForm("knows", "node:1", "node:2"))
+  assert !client.edge_submittable(client.EdgeForm("knows", "", "node:2"))
+  assert !client.edge_submittable(client.EdgeForm("knows", "node:1", ""))
+  assert !client.edge_submittable(client.EdgeForm("knows", "", ""))
+}
+
+pub fn edge_selects_have_placeholder_option_test() {
+  let sim =
+    start()
+    |> simulate.message(client.UniverseSelected(universe("u:1", "A")))
+    |> simulate.message(
+      client.NodesLoaded(Ok([node("node:1", "Alice", shared.Place)])),
+    )
+  assert query.has(
+    simulate.view(sim),
+    query.and(query.tag("option"), query.attribute("value", "")),
+  )
+}
+
 // ---- M4: filterable graph ----
 
 pub fn selecting_universe_loads_graph_test() {
