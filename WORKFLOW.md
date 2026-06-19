@@ -152,13 +152,14 @@ repo root, but this is a **three-package monorepo**. Fix:
 - [x] Client: relationship create/delete between nodes (no edit — RELATE endpoints are
       immutable; re-create to change).
 
-### M4 — Filterable relationship graph (main piece)
-- [ ] Server: graph endpoint returning the filtered subgraph (nodes + edges) for a
+### M4 — Filterable relationship graph (main piece) ✅
+- [x] Server: graph endpoint returning the filtered subgraph (nodes + edges) for a
       universe; filters by `kind` / `relationship` / arbitrary node fields via bound
       SurrealQL params; tests.
-- [ ] Client: filter controls hold the selected filter as UI state, request the subgraph,
-      and render it via FFI to a JS graph lib (cytoscape.js / force-directed) behind a thin
-      wrapper. No filtering logic in the client — it only draws what the server returns.
+- [x] Client: filter controls hold the selected filter as UI state, request the subgraph,
+      and render it via FFI (`graph_ffi.mjs`) into `#graph-canvas`. No filtering logic in
+      the client — it only draws what the server returns. (Used a small dependency-free SVG
+      renderer rather than pulling in cytoscape.js; same FFI seam.)
 
 ### M5 — Timeline
 - [ ] Server: query returning `Event`-kind nodes (ordered by `when`) with their edges,
@@ -263,3 +264,32 @@ Append a dated line as milestones complete; update the checkboxes above.
   - **Client:** selecting a universe now `effect.batch`es node + edge loads. The edge form
     has a relationship text input and from/to `<select>`s populated from the loaded nodes;
     edge rows resolve node ids back to names. `edge_body` is public for direct unit tests.
+- 2026-06-19 — **M4 complete** (branch `m4-graph`, 107 tests passing: shared 9,
+  server 65, client 33). Decisions, verified empirically against a live SurrealDB before
+  writing Gleam:
+  - **Single multi-statement subgraph query** returns one decodable object:
+    `LET $ns = SELECT * FROM node WHERE … ORDER BY name; LET $ids = $ns.id;
+    LET $es = SELECT id, in AS from, out AS to, … FROM relationship WHERE …
+    AND in IN $ids AND out IN $ids ORDER BY relationship; RETURN { nodes: $ns, edges: $es };`
+    `last_result` picks the trailing RETURN; `shared.graph_decoder` reads `{nodes, edges}`.
+    Edges are pruned to those whose **both** endpoints survive the node filter.
+  - **Nullable bound params:** a JSON `null` var arrives in SurrealDB as `NULL` (not
+    `NONE`), so each filter guard is `($x = NULL OR <col> = $x)` — passing the param null
+    makes the clause a no-op. `db.subgraph` takes `Option(String)` filters and maps
+    `None`→`json.null()`.
+  - **Arbitrary node-field filter** uses dynamic field access in the WHERE:
+    `($field = NULL OR $this[$field] = $value)` — `$this[$field]` indexes the current row
+    by the bound field name. Value compared as a string (sufficient for the schemaless
+    string fields; non-string equality is out of scope).
+  - **Endpoint:** `GET /universes/:uid/graph?kind=&relationship=&field=&value=`
+    (`server/src/server/graph.gleam`), routed before the universes catch-all. Empty-string
+    query params are treated as "no filter" (`Ok("") | Error(_) -> None`).
+  - **Client:** a graph filter form (kind/relationship/field/value + **Apply**) holds the
+    filter as UI state and re-fetches the subgraph — **no client-side filtering**.
+    `graph_query` (public, unit-tested) builds the query string from only the non-empty
+    fields. `GraphLoaded(Ok)` fires an FFI effect; `client/src/graph_ffi.mjs` `render`
+    parses the graph JSON and paints a dependency-free SVG (circle layout, edge labels)
+    into `#graph-canvas`. (Chose a tiny SVG renderer over cytoscape.js to avoid an npm
+    dependency in the Gleam→JS build; the FFI seam stays the same if swapped later.)
+    Known tradeoff: Lustre owns `#graph-canvas`, so a future unrelated re-render could wipe
+    the FFI-drawn SVG until the next `GraphLoaded`; acceptable for this milestone.
