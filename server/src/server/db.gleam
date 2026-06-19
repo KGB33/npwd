@@ -359,6 +359,38 @@ fn edge_before_decoder() -> Decoder(shared.Edge) {
   decode.success(shared.Edge(id, universe, relationship, from, to))
 }
 
+pub fn subgraph(
+  config: Config,
+  universe: String,
+  kind: Option(String),
+  relationship: Option(String),
+  field: Option(String),
+  value: Option(String),
+) -> Result(shared.Graph, DbError) {
+  query_vars(
+    config,
+    "LET $ns = SELECT * FROM node WHERE universe = type::thing($u) AND ($kind = NULL OR kind = $kind) AND ($field = NULL OR $this[$field] = $value) ORDER BY name;
+     LET $ids = $ns.id;
+     LET $es = SELECT id, in AS from, out AS to, relationship, universe FROM relationship WHERE universe = type::thing($u) AND ($rel = NULL OR relationship = $rel) AND in IN $ids AND out IN $ids ORDER BY relationship;
+     RETURN { nodes: $ns, edges: $es };",
+    [
+      #("u", json.string(universe)),
+      #("kind", opt_string(kind)),
+      #("rel", opt_string(relationship)),
+      #("field", opt_string(field)),
+      #("value", opt_string(value)),
+    ],
+    shared.graph_decoder(),
+  )
+}
+
+fn opt_string(value: Option(String)) -> Json {
+  case value {
+    Some(s) -> json.string(s)
+    None -> json.null()
+  }
+}
+
 pub fn apply_schema(config: Config) -> Result(Nil, DbError) {
   case load_schema() {
     Ok(surql) -> execute(config, surql)
