@@ -20,6 +20,8 @@ fn model() -> client.Model {
     nodes: client.Loading,
     node_form: client.NodeForm("", "", client.PlaceForm),
     editing_node: None,
+    edges: client.Loading,
+    edge_form: client.EdgeForm("", "", ""),
   )
 }
 
@@ -29,6 +31,10 @@ fn universe(id: String, name: String) -> shared.Universe {
 
 fn node(id: String, name: String, kind: shared.NodeKind) -> shared.Node {
   shared.Node(id, "u:1", kind, name, "")
+}
+
+fn edge(id: String, relationship: String) -> shared.Edge {
+  shared.Edge(id, "u:1", relationship, "node:1", "node:2")
 }
 
 pub fn loaded_sets_universes_test() {
@@ -168,6 +174,52 @@ pub fn node_body_generic_drops_empty_keys_test() {
   assert json.to_string(client.node_body(form)) == json.to_string(expected)
 }
 
+// ---- M3: edge management ----
+
+pub fn selecting_universe_loads_edges_test() {
+  let #(m, _) =
+    client.update(model(), client.UniverseSelected(universe("u:1", "A")))
+  assert m.edges == client.Loading
+}
+
+pub fn edges_loaded_sets_edges_test() {
+  let e = edge("relationship:1", "knows")
+  let #(m, _) = client.update(model(), client.EdgesLoaded(Ok([e])))
+  assert m.edges == client.Loaded([e])
+}
+
+pub fn edge_form_changes_apply_test() {
+  let #(m, _) =
+    model()
+    |> client.update(client.EdgeRelationshipChanged("was_at"))
+    |> fn(p) { client.update(p.0, client.EdgeFromSelected("node:1")) }
+  let #(m, _) = client.update(m, client.EdgeToSelected("node:2"))
+  assert m.edge_form == client.EdgeForm("was_at", "node:1", "node:2")
+}
+
+pub fn edge_saved_clears_form_test() {
+  let opened =
+    client.Model(
+      ..model(),
+      selected: Some(universe("u:1", "A")),
+      edge_form: client.EdgeForm("knows", "node:1", "node:2"),
+    )
+  let #(m, _) =
+    client.update(opened, client.EdgeSaved(Ok(edge("relationship:1", "knows"))))
+  assert m.edge_form == client.EdgeForm("", "", "")
+}
+
+pub fn edge_body_test() {
+  let form = client.EdgeForm("was_at", "node:1", "node:2")
+  let expected =
+    json.object([
+      #("relationship", json.string("was_at")),
+      #("from", json.string("node:1")),
+      #("to", json.string("node:2")),
+    ])
+  assert json.to_string(client.edge_body(form)) == json.to_string(expected)
+}
+
 fn start() {
   simulate.application(client.init, client.update, client.view)
   |> simulate.start(Nil)
@@ -228,5 +280,20 @@ pub fn selected_view_shows_node_form_and_list_test() {
   assert query.has(
     simulate.view(sim),
     query.and(query.test_id("node-name"), query.text("Shire")),
+  )
+}
+
+pub fn selected_view_shows_edge_form_and_list_test() {
+  let e = edge("relationship:1", "was_at")
+  let sim =
+    start()
+    |> simulate.message(
+      client.UniverseSelected(universe("u:1", "Middle Earth")),
+    )
+    |> simulate.message(client.EdgesLoaded(Ok([e])))
+  assert query.has(simulate.view(sim), query.test_id("edge-form"))
+  assert query.has(
+    simulate.view(sim),
+    query.and(query.test_id("edge-relationship"), query.text("was_at")),
   )
 }

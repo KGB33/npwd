@@ -35,6 +35,10 @@ pub type NodeForm {
   NodeForm(name: String, description: String, kind: KindForm)
 }
 
+pub type EdgeForm {
+  EdgeForm(relationship: String, from: String, to: String)
+}
+
 pub type Model {
   Model(
     universes: Remote(List(shared.Universe)),
@@ -44,6 +48,8 @@ pub type Model {
     nodes: Remote(List(shared.Node)),
     node_form: NodeForm,
     editing_node: Option(String),
+    edges: Remote(List(shared.Edge)),
+    edge_form: EdgeForm,
   )
 }
 
@@ -77,6 +83,14 @@ pub type Msg {
   NodeEditCancelled
   NodeDeleteRequested(String)
   NodeDeleteResolved(Result(String, rsvp.Error(String)))
+  EdgesLoaded(Result(List(shared.Edge), rsvp.Error(String)))
+  EdgeRelationshipChanged(String)
+  EdgeFromSelected(String)
+  EdgeToSelected(String)
+  EdgeSubmitted
+  EdgeSaved(Result(shared.Edge, rsvp.Error(String)))
+  EdgeDeleteRequested(String)
+  EdgeDeleteResolved(Result(String, rsvp.Error(String)))
 }
 
 pub fn main() -> Nil {
@@ -95,6 +109,8 @@ pub fn init(_args) -> #(Model, Effect(Msg)) {
       nodes: Loading,
       node_form: empty_node_form,
       editing_node: None,
+      edges: Loading,
+      edge_form: empty_edge_form,
     ),
     load_universes(),
   )
@@ -103,6 +119,8 @@ pub fn init(_args) -> #(Model, Effect(Msg)) {
 const empty_form = Form(name: "", description: "")
 
 const empty_node_form = NodeForm(name: "", description: "", kind: PlaceForm)
+
+const empty_edge_form = EdgeForm(relationship: "", from: "", to: "")
 
 fn load_universes() -> Effect(Msg) {
   rsvp.get(
@@ -164,6 +182,45 @@ fn delete_node(model: Model, id: String) -> Effect(Msg) {
         rsvp.expect_text(NodeDeleteResolved),
       )
   }
+}
+
+fn load_edges(universe: String) -> Effect(Msg) {
+  rsvp.get(
+    "/universes/" <> universe <> "/edges",
+    rsvp.expect_json(decode.list(shared.edge_decoder()), EdgesLoaded),
+  )
+}
+
+fn save_edge(model: Model) -> Effect(Msg) {
+  case model.selected {
+    None -> effect.none()
+    Some(universe) ->
+      rsvp.post(
+        "/universes/" <> universe.id <> "/edges",
+        edge_body(model.edge_form),
+        rsvp.expect_json(shared.edge_decoder(), EdgeSaved),
+      )
+  }
+}
+
+fn delete_edge(model: Model, id: String) -> Effect(Msg) {
+  case model.selected {
+    None -> effect.none()
+    Some(universe) ->
+      rsvp.delete(
+        "/universes/" <> universe.id <> "/edges/" <> id,
+        json.null(),
+        rsvp.expect_text(EdgeDeleteResolved),
+      )
+  }
+}
+
+pub fn edge_body(form: EdgeForm) -> Json {
+  json.object([
+    #("relationship", json.string(form.relationship)),
+    #("from", json.string(form.from)),
+    #("to", json.string(form.to)),
+  ])
 }
 
 pub fn node_body(form: NodeForm) -> Json {
@@ -339,11 +396,13 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         nodes: Loading,
         node_form: empty_node_form,
         editing_node: None,
+        edges: Loading,
+        edge_form: empty_edge_form,
       ),
-      load_nodes(universe.id),
+      effect.batch([load_nodes(universe.id), load_edges(universe.id)]),
     )
     UniverseDeselected -> #(
-      Model(..model, selected: None, nodes: Loading),
+      Model(..model, selected: None, nodes: Loading, edges: Loading),
       effect.none(),
     )
     NodesLoaded(Ok(nodes)) -> #(
@@ -455,6 +514,39 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         Some(universe) -> #(model, load_nodes(universe.id))
         None -> #(model, effect.none())
       }
+    EdgesLoaded(Ok(edges)) -> #(
+      Model(..model, edges: Loaded(edges)),
+      effect.none(),
+    )
+    EdgesLoaded(Error(_)) -> #(Model(..model, edges: Failed), effect.none())
+    EdgeRelationshipChanged(relationship) -> #(
+      Model(..model, edge_form: EdgeForm(..model.edge_form, relationship:)),
+      effect.none(),
+    )
+    EdgeFromSelected(from) -> #(
+      Model(..model, edge_form: EdgeForm(..model.edge_form, from:)),
+      effect.none(),
+    )
+    EdgeToSelected(to) -> #(
+      Model(..model, edge_form: EdgeForm(..model.edge_form, to:)),
+      effect.none(),
+    )
+    EdgeSubmitted -> #(model, save_edge(model))
+    EdgeSaved(Ok(_)) ->
+      case model.selected {
+        Some(universe) -> #(
+          Model(..model, edge_form: empty_edge_form),
+          load_edges(universe.id),
+        )
+        None -> #(model, effect.none())
+      }
+    EdgeSaved(Error(_)) -> #(model, effect.none())
+    EdgeDeleteRequested(id) -> #(model, delete_edge(model, id))
+    EdgeDeleteResolved(_) ->
+      case model.selected {
+        Some(universe) -> #(model, load_edges(universe.id))
+        None -> #(model, effect.none())
+      }
   }
 }
 
@@ -482,6 +574,8 @@ pub fn view(model: Model) -> Element(Msg) {
         ),
         node_form_view(model),
         nodes_view(model.nodes),
+        edge_form_view(model),
+        edges_view(model.edges, model.nodes),
       ])
   }
 }
@@ -721,6 +815,100 @@ fn kind_label(kind: shared.NodeKind) -> String {
     shared.Place -> "Place"
     shared.Event(..) -> "Event"
     shared.Generic(..) -> "Generic"
+  }
+}
+
+fn edge_form_view(model: Model) -> Element(Msg) {
+  html.div([attribute.attribute("data-test-id", "edge-form")], [
+    html.input([
+      attribute.attribute("data-test-id", "edge-relationship-input"),
+      attribute.placeholder("Relationship"),
+      attribute.value(model.edge_form.relationship),
+      event.on_input(EdgeRelationshipChanged),
+    ]),
+    node_select(
+      "edge-from-select",
+      model.edge_form.from,
+      model.nodes,
+      EdgeFromSelected,
+    ),
+    node_select("edge-to-select", model.edge_form.to, model.nodes, EdgeToSelected),
+    html.button(
+      [
+        attribute.attribute("data-test-id", "edge-submit"),
+        event.on_click(EdgeSubmitted),
+      ],
+      [element.text("Add edge")],
+    ),
+  ])
+}
+
+fn node_select(
+  test_id: String,
+  current: String,
+  nodes: Remote(List(shared.Node)),
+  msg: fn(String) -> Msg,
+) -> Element(Msg) {
+  let options = case nodes {
+    Loaded(list) ->
+      list.map(list, fn(n) {
+        html.option(
+          [attribute.value(n.id), attribute.selected(n.id == current)],
+          n.name,
+        )
+      })
+    _ -> []
+  }
+  html.select(
+    [attribute.attribute("data-test-id", test_id), event.on_change(msg)],
+    options,
+  )
+}
+
+fn edges_view(
+  edges: Remote(List(shared.Edge)),
+  nodes: Remote(List(shared.Node)),
+) -> Element(Msg) {
+  case edges {
+    Loading -> status("Loading edges…")
+    Failed -> status("Could not load edges")
+    Loaded([]) -> status("No edges yet")
+    Loaded(list) ->
+      html.ul(
+        [attribute.attribute("data-test-id", "edge-list")],
+        list.map(list, fn(e) { edge_row(e, nodes) }),
+      )
+  }
+}
+
+fn edge_row(
+  edge: shared.Edge,
+  nodes: Remote(List(shared.Node)),
+) -> Element(Msg) {
+  html.li([attribute.attribute("data-test-id", "edge")], [
+    html.span([attribute.attribute("data-test-id", "edge-from")], [
+      element.text(node_name(nodes, edge.from)),
+    ]),
+    html.span([attribute.attribute("data-test-id", "edge-relationship")], [
+      element.text(edge.relationship),
+    ]),
+    html.span([attribute.attribute("data-test-id", "edge-to")], [
+      element.text(node_name(nodes, edge.to)),
+    ]),
+    html.button([event.on_click(EdgeDeleteRequested(edge.id))], [
+      element.text("Delete"),
+    ]),
+  ])
+}
+
+fn node_name(nodes: Remote(List(shared.Node)), id: String) -> String {
+  case nodes {
+    Loaded(list) ->
+      case list.find(list, fn(n) { n.id == id }) {
+        Ok(n) -> n.name
+        Error(_) -> id
+      }
+    _ -> id
   }
 }
 
