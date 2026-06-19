@@ -136,10 +136,11 @@ repo root, but this is a **three-package monorepo**. Fix:
       now-superseded `lustre_http`).
 - [x] Fix CI to run per-package + add in-memory SurrealDB container.
 
-### M1 — Universes
+### M1 — Universes ✅
 (Everything is scoped to a universe, so this is first.)
-- [ ] Server: CRUD endpoints + sql queries + handler/integration tests.
-- [ ] Client: universe selector + create/edit views.
+- [x] Server: CRUD endpoints (`GET/POST /universes`, `GET/PUT/DELETE /universes/:id`)
+      + `db.gleam` queries + handler/integration tests.
+- [x] Client: universe list + create/edit/delete views.
 
 ### M2 — Nodes (generic nouns, all kinds incl. Event/Place)
 - [ ] Server: CRUD scoped to universe, `kind` + `data` jsonb; tests.
@@ -198,3 +199,21 @@ Append a dated line as milestones complete; update the checkboxes above.
     BSL-licensed → allowed via a narrow `allowUnfreePredicate`). Local tests need a
     SurrealDB on `127.0.0.1:8001`: `surreal start --user root --pass root --bind
     127.0.0.1:8001 memory`.
+- 2026-06-19 — **M1 complete** (branch `m1-universes`, 41 tests passing: shared 7,
+  server 24, client 10). Decisions:
+  - **Bound params over HTTP `/sql`:** variables are passed as query-string params and
+    each value is **JSON-encoded** (`?name="Dune"`). Verified this is injection-safe (an
+    injection payload is treated as a data value) **and** correctly typed (a JSON `5` is a
+    number; quoting forces strings, so a name like `1984` stays a string). `db.gleam`'s
+    `run` now takes `vars: List(#(String, Json))`; `query`/`execute` pass `[]`.
+  - **Record ids** are the full SurrealDB thing string (`universe:xxxx`) end to end;
+    select/update/delete by id use `type::thing($id)`. The id sits in the URL path
+    (`/universes/universe:xxxx`) and `wisp.path_segments` keeps the colon.
+  - **HTTP handlers** live in `server/src/server/universes.gleam`; `db.gleam` stays the
+    only place SurrealQL is written. `NotFound`→404, bad JSON→400, bad verb→405, delete→204.
+  - **Router** now takes the `db.Config` (`router.handle_request(config, req)`); `main`
+    partially applies it into the wisp_mist handler.
+  - **Client = display layer:** every mutation (create/update/delete) re-fetches
+    `/universes` instead of editing client state, keeping the server authoritative.
+  - **Test helper** `server/test/helpers.gleam` (`fresh_config`/`fresh_db`) gives each
+    integration test an isolated database.
