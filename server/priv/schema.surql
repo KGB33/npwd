@@ -1,0 +1,11 @@
+DEFINE TABLE IF NOT EXISTS universe SCHEMALESS;
+DEFINE FIELD IF NOT EXISTS name ON universe TYPE string;
+DEFINE FIELD IF NOT EXISTS description ON universe TYPE string;
+
+DEFINE TABLE IF NOT EXISTS node SCHEMALESS;
+DEFINE FIELD IF NOT EXISTS universe ON node TYPE record<universe>;
+DEFINE FIELD IF NOT EXISTS kind ON node TYPE string;
+DEFINE FIELD IF NOT EXISTS name ON node TYPE string;
+DEFINE FIELD IF NOT EXISTS description ON node TYPE string;
+DEFINE INDEX IF NOT EXISTS node_universe ON node FIELDS universe;
+DEFINE INDEX IF NOT EXISTS node_kind ON node FIELDS kind;

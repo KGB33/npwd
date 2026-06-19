@@ -1,11 +1,13 @@
 import gleam/erlang/process
 import mist
+import server/db
 import server/router
 import wisp
 import wisp/wisp_mist
 
 pub fn main() -> Nil {
   wisp.configure_logger()
+  let _ = db.apply_schema(db.default_config())
   let secret_key_base = wisp.random_string(64)
 
   let assert Ok(_) =
