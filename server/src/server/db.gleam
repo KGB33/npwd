@@ -292,6 +292,73 @@ pub fn delete_node(
   )
 }
 
+pub fn list_edges(
+  config: Config,
+  universe: String,
+) -> Result(List(shared.Edge), DbError) {
+  query_vars(
+    config,
+    "SELECT id, in AS from, out AS to, relationship, universe FROM relationship WHERE universe = type::thing($u) ORDER BY relationship",
+    [#("u", json.string(universe))],
+    decode.list(shared.edge_decoder()),
+  )
+}
+
+pub fn create_edge(
+  config: Config,
+  universe: String,
+  relationship: String,
+  from: String,
+  to: String,
+) -> Result(shared.Edge, DbError) {
+  query_first(
+    config,
+    "LET $f = type::thing($from); LET $t = type::thing($to); RELATE $f->relationship->$t CONTENT { universe: type::thing($u), relationship: $rel } RETURN id, in AS from, out AS to, relationship, universe",
+    [
+      #("u", json.string(universe)),
+      #("rel", json.string(relationship)),
+      #("from", json.string(from)),
+      #("to", json.string(to)),
+    ],
+    shared.edge_decoder(),
+  )
+}
+
+pub fn get_edge(
+  config: Config,
+  universe: String,
+  id: String,
+) -> Result(shared.Edge, DbError) {
+  query_first(
+    config,
+    "SELECT id, in AS from, out AS to, relationship, universe FROM type::thing($id) WHERE universe = type::thing($u)",
+    [#("id", json.string(id)), #("u", json.string(universe))],
+    shared.edge_decoder(),
+  )
+}
+
+pub fn delete_edge(
+  config: Config,
+  universe: String,
+  id: String,
+) -> Result(shared.Edge, DbError) {
+  query_first(
+    config,
+    "DELETE type::thing($id) WHERE universe = type::thing($u) RETURN BEFORE",
+    [#("id", json.string(id)), #("u", json.string(universe))],
+    edge_before_decoder(),
+  )
+}
+
+fn edge_before_decoder() -> Decoder(shared.Edge) {
+  use id <- decode.field("id", decode.string)
+  use universe <- decode.field("universe", decode.string)
+  use relationship <- decode.field("relationship", decode.string)
+  use from <- decode.field("in", decode.string)
+  use to <- decode.field("out", decode.string)
+  decode.success(shared.Edge(id, universe, relationship, from, to))
+}
+
 pub fn apply_schema(config: Config) -> Result(Nil, DbError) {
   case load_schema() {
     Ok(surql) -> execute(config, surql)

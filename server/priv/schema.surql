@@ -9,3 +9,8 @@ DEFINE FIELD IF NOT EXISTS name ON node TYPE string;
 DEFINE FIELD IF NOT EXISTS description ON node TYPE string;
 DEFINE INDEX IF NOT EXISTS node_universe ON node FIELDS universe;
 DEFINE INDEX IF NOT EXISTS node_kind ON node FIELDS kind;
+
+DEFINE TABLE IF NOT EXISTS relationship TYPE RELATION SCHEMALESS;
+DEFINE FIELD IF NOT EXISTS universe ON relationship TYPE record<universe>;
+DEFINE FIELD IF NOT EXISTS relationship ON relationship TYPE string;
+DEFINE INDEX IF NOT EXISTS relationship_universe ON relationship FIELDS universe;
