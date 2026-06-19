@@ -2,6 +2,7 @@ import gleam/http.{Get}
 import gleam/json
 import server/db
 import server/edges
+import server/graph
 import server/nodes
 import server/universes
 import wisp.{type Request, type Response}
@@ -16,6 +17,7 @@ pub fn handle_request(config: db.Config, req: Request) -> Response {
     ["health"] -> health(req)
     ["universes", uid, "nodes", ..rest] -> nodes.handle(config, req, uid, rest)
     ["universes", uid, "edges", ..rest] -> edges.handle(config, req, uid, rest)
+    ["universes", uid, "graph"] -> graph.handle(config, req, uid)
     ["universes", ..rest] -> universes.handle(config, req, rest)
     _ -> wisp.not_found()
   }
