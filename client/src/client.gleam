@@ -57,6 +57,7 @@ pub type Model {
     edge_form: EdgeForm,
     graph: Remote(shared.Graph),
     graph_filter: GraphFilter,
+    timeline: Remote(shared.Graph),
   )
 }
 
@@ -104,6 +105,7 @@ pub type Msg {
   GraphFieldChanged(String)
   GraphValueChanged(String)
   GraphFilterApplied
+  TimelineLoaded(Result(shared.Graph, rsvp.Error(String)))
 }
 
 pub fn main() -> Nil {
@@ -126,6 +128,7 @@ pub fn init(_args) -> #(Model, Effect(Msg)) {
       edge_form: empty_edge_form,
       graph: Loading,
       graph_filter: empty_graph_filter,
+      timeline: Loading,
     ),
     load_universes(),
   )
@@ -258,6 +261,13 @@ pub fn graph_query(filter: GraphFilter) -> String {
     [] -> ""
     _ -> "?" <> string.join(pairs, "&")
   }
+}
+
+fn load_timeline(universe: String) -> Effect(Msg) {
+  rsvp.get(
+    "/universes/" <> universe <> "/timeline",
+    rsvp.expect_json(shared.graph_decoder(), TimelineLoaded),
+  )
 }
 
 fn render_graph(graph: shared.Graph) -> Effect(Msg) {
@@ -456,15 +466,24 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         edge_form: empty_edge_form,
         graph: Loading,
         graph_filter: empty_graph_filter,
+        timeline: Loading,
       ),
       effect.batch([
         load_nodes(universe.id),
         load_edges(universe.id),
         load_graph(universe.id, empty_graph_filter),
+        load_timeline(universe.id),
       ]),
     )
     UniverseDeselected -> #(
-      Model(..model, selected: None, nodes: Loading, edges: Loading, graph: Loading),
+      Model(
+        ..model,
+        selected: None,
+        nodes: Loading,
+        edges: Loading,
+        graph: Loading,
+        timeline: Loading,
+      ),
       effect.none(),
     )
     NodesLoaded(Ok(nodes)) -> #(
@@ -641,6 +660,11 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         )
         None -> #(model, effect.none())
       }
+    TimelineLoaded(Ok(timeline)) -> #(
+      Model(..model, timeline: Loaded(timeline)),
+      effect.none(),
+    )
+    TimelineLoaded(Error(_)) -> #(Model(..model, timeline: Failed), effect.none())
   }
 }
 
@@ -672,6 +696,7 @@ pub fn view(model: Model) -> Element(Msg) {
         edges_view(model.edges, model.nodes),
         graph_filter_view(model.graph_filter),
         graph_view(model.graph),
+        timeline_view(model.timeline, model.nodes),
       ])
   }
 }
@@ -1059,6 +1084,69 @@ fn graph_view(graph: Remote(shared.Graph)) -> Element(Msg) {
     ]),
     html.div([attribute.attribute("data-test-id", "graph"), attribute.id("graph-canvas")], []),
   ])
+}
+
+fn timeline_view(
+  timeline: Remote(shared.Graph),
+  nodes: Remote(List(shared.Node)),
+) -> Element(Msg) {
+  case timeline {
+    Loading -> status("Loading timeline…")
+    Failed -> status("Could not load timeline")
+    Loaded(g) ->
+      case g.nodes {
+        [] -> status("No events yet")
+        events ->
+          html.ol(
+            [attribute.attribute("data-test-id", "timeline")],
+            list.map(events, fn(ev) { timeline_event(ev, g.edges, nodes) }),
+          )
+      }
+  }
+}
+
+fn timeline_event(
+  event: shared.Node,
+  edges: List(shared.Edge),
+  nodes: Remote(List(shared.Node)),
+) -> Element(Msg) {
+  let incident =
+    list.filter(edges, fn(e) { e.from == event.id || e.to == event.id })
+  html.li([attribute.attribute("data-test-id", "timeline-event")], [
+    html.span([attribute.attribute("data-test-id", "timeline-when")], [
+      element.text(event_when(event.kind)),
+    ]),
+    html.span([attribute.attribute("data-test-id", "timeline-name")], [
+      element.text(event.name),
+    ]),
+    html.ul([], list.map(incident, fn(e) { timeline_link(event, e, nodes) })),
+  ])
+}
+
+fn timeline_link(
+  event: shared.Node,
+  edge: shared.Edge,
+  nodes: Remote(List(shared.Node)),
+) -> Element(Msg) {
+  let other = case edge.from == event.id {
+    True -> edge.to
+    False -> edge.from
+  }
+  html.li([attribute.attribute("data-test-id", "timeline-link")], [
+    element.text(edge.relationship <> " → " <> node_name(nodes, other)),
+  ])
+}
+
+fn event_when(kind: shared.NodeKind) -> String {
+  case kind {
+    shared.Event(when) ->
+      int.to_string(when.year)
+      <> "-"
+      <> int.to_string(when.month)
+      <> "-"
+      <> int.to_string(when.day)
+    _ -> ""
+  }
 }
 
 fn status(text: String) -> Element(Msg) {

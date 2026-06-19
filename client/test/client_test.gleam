@@ -24,6 +24,7 @@ fn model() -> client.Model {
     edge_form: client.EdgeForm("", "", ""),
     graph: client.Loading,
     graph_filter: client.GraphFilter("", "", "", ""),
+    timeline: client.Loading,
   )
 }
 
@@ -259,6 +260,49 @@ pub fn graph_query_only_includes_set_fields_test() {
   assert client.graph_query(client.GraphFilter("", "", "", "")) == ""
   assert client.graph_query(client.GraphFilter("Person", "", "gender", "male"))
     == "?kind=Person&field=gender&value=male"
+}
+
+// ---- M5: timeline ----
+
+pub fn selecting_universe_loads_timeline_test() {
+  let #(m, _) =
+    client.update(model(), client.UniverseSelected(universe("u:1", "A")))
+  assert m.timeline == client.Loading
+}
+
+pub fn timeline_loaded_sets_timeline_test() {
+  let ev =
+    node("node:e1", "Fall", shared.Event(shared.Date(3019, 3, 25)))
+  let g = shared.Graph([ev], [])
+  let #(m, _) = client.update(model(), client.TimelineLoaded(Ok(g)))
+  assert m.timeline == client.Loaded(g)
+}
+
+pub fn selected_view_shows_timeline_test() {
+  let ev =
+    node("node:e1", "Fall of Sauron", shared.Event(shared.Date(3019, 3, 25)))
+  let shire = node("node:p1", "Shire", shared.Place)
+  let link =
+    shared.Edge("relationship:1", "u:1", "happened_at", "node:e1", "node:p1")
+  let g = shared.Graph([ev], [link])
+  let sim =
+    start()
+    |> simulate.message(client.UniverseSelected(universe("u:1", "Middle Earth")))
+    |> simulate.message(client.NodesLoaded(Ok([ev, shire])))
+    |> simulate.message(client.TimelineLoaded(Ok(g)))
+  assert query.has(simulate.view(sim), query.test_id("timeline"))
+  assert query.has(
+    simulate.view(sim),
+    query.and(query.test_id("timeline-name"), query.text("Fall of Sauron")),
+  )
+  assert query.has(
+    simulate.view(sim),
+    query.and(query.test_id("timeline-when"), query.text("3019-3-25")),
+  )
+  assert query.has(
+    simulate.view(sim),
+    query.and(query.test_id("timeline-link"), query.text("happened_at → Shire")),
+  )
 }
 
 fn start() {
