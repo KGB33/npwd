@@ -5,6 +5,7 @@ import gleam/int
 import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/string
 import lustre
 import lustre/attribute
 import lustre/effect.{type Effect}
@@ -39,6 +40,10 @@ pub type EdgeForm {
   EdgeForm(relationship: String, from: String, to: String)
 }
 
+pub type GraphFilter {
+  GraphFilter(kind: String, relationship: String, field: String, value: String)
+}
+
 pub type Model {
   Model(
     universes: Remote(List(shared.Universe)),
@@ -50,6 +55,8 @@ pub type Model {
     editing_node: Option(String),
     edges: Remote(List(shared.Edge)),
     edge_form: EdgeForm,
+    graph: Remote(shared.Graph),
+    graph_filter: GraphFilter,
   )
 }
 
@@ -91,6 +98,12 @@ pub type Msg {
   EdgeSaved(Result(shared.Edge, rsvp.Error(String)))
   EdgeDeleteRequested(String)
   EdgeDeleteResolved(Result(String, rsvp.Error(String)))
+  GraphLoaded(Result(shared.Graph, rsvp.Error(String)))
+  GraphKindChanged(String)
+  GraphRelationshipChanged(String)
+  GraphFieldChanged(String)
+  GraphValueChanged(String)
+  GraphFilterApplied
 }
 
 pub fn main() -> Nil {
@@ -111,6 +124,8 @@ pub fn init(_args) -> #(Model, Effect(Msg)) {
       editing_node: None,
       edges: Loading,
       edge_form: empty_edge_form,
+      graph: Loading,
+      graph_filter: empty_graph_filter,
     ),
     load_universes(),
   )
@@ -121,6 +136,13 @@ const empty_form = Form(name: "", description: "")
 const empty_node_form = NodeForm(name: "", description: "", kind: PlaceForm)
 
 const empty_edge_form = EdgeForm(relationship: "", from: "", to: "")
+
+const empty_graph_filter = GraphFilter(
+  kind: "",
+  relationship: "",
+  field: "",
+  value: "",
+)
 
 fn load_universes() -> Effect(Msg) {
   rsvp.get(
@@ -213,6 +235,40 @@ fn delete_edge(model: Model, id: String) -> Effect(Msg) {
         rsvp.expect_text(EdgeDeleteResolved),
       )
   }
+}
+
+fn load_graph(universe: String, filter: GraphFilter) -> Effect(Msg) {
+  rsvp.get(
+    "/universes/" <> universe <> "/graph" <> graph_query(filter),
+    rsvp.expect_json(shared.graph_decoder(), GraphLoaded),
+  )
+}
+
+pub fn graph_query(filter: GraphFilter) -> String {
+  let pairs =
+    [
+      #("kind", filter.kind),
+      #("relationship", filter.relationship),
+      #("field", filter.field),
+      #("value", filter.value),
+    ]
+    |> list.filter(fn(p) { p.1 != "" })
+    |> list.map(fn(p) { p.0 <> "=" <> p.1 })
+  case pairs {
+    [] -> ""
+    _ -> "?" <> string.join(pairs, "&")
+  }
+}
+
+fn render_graph(graph: shared.Graph) -> Effect(Msg) {
+  effect.from(fn(_dispatch) {
+    do_render_graph(json.to_string(shared.graph_to_json(graph)))
+  })
+}
+
+@external(javascript, "./graph_ffi.mjs", "render")
+fn do_render_graph(_data: String) -> Nil {
+  Nil
 }
 
 pub fn edge_body(form: EdgeForm) -> Json {
@@ -398,11 +454,17 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         editing_node: None,
         edges: Loading,
         edge_form: empty_edge_form,
+        graph: Loading,
+        graph_filter: empty_graph_filter,
       ),
-      effect.batch([load_nodes(universe.id), load_edges(universe.id)]),
+      effect.batch([
+        load_nodes(universe.id),
+        load_edges(universe.id),
+        load_graph(universe.id, empty_graph_filter),
+      ]),
     )
     UniverseDeselected -> #(
-      Model(..model, selected: None, nodes: Loading, edges: Loading),
+      Model(..model, selected: None, nodes: Loading, edges: Loading, graph: Loading),
       effect.none(),
     )
     NodesLoaded(Ok(nodes)) -> #(
@@ -547,6 +609,38 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         Some(universe) -> #(model, load_edges(universe.id))
         None -> #(model, effect.none())
       }
+    GraphLoaded(Ok(graph)) -> #(
+      Model(..model, graph: Loaded(graph)),
+      render_graph(graph),
+    )
+    GraphLoaded(Error(_)) -> #(Model(..model, graph: Failed), effect.none())
+    GraphKindChanged(kind) -> #(
+      Model(..model, graph_filter: GraphFilter(..model.graph_filter, kind:)),
+      effect.none(),
+    )
+    GraphRelationshipChanged(relationship) -> #(
+      Model(
+        ..model,
+        graph_filter: GraphFilter(..model.graph_filter, relationship:),
+      ),
+      effect.none(),
+    )
+    GraphFieldChanged(field) -> #(
+      Model(..model, graph_filter: GraphFilter(..model.graph_filter, field:)),
+      effect.none(),
+    )
+    GraphValueChanged(value) -> #(
+      Model(..model, graph_filter: GraphFilter(..model.graph_filter, value:)),
+      effect.none(),
+    )
+    GraphFilterApplied ->
+      case model.selected {
+        Some(universe) -> #(
+          Model(..model, graph: Loading),
+          load_graph(universe.id, model.graph_filter),
+        )
+        None -> #(model, effect.none())
+      }
   }
 }
 
@@ -576,6 +670,8 @@ pub fn view(model: Model) -> Element(Msg) {
         nodes_view(model.nodes),
         edge_form_view(model),
         edges_view(model.edges, model.nodes),
+        graph_filter_view(model.graph_filter),
+        graph_view(model.graph),
       ])
   }
 }
@@ -910,6 +1006,59 @@ fn node_name(nodes: Remote(List(shared.Node)), id: String) -> String {
       }
     _ -> id
   }
+}
+
+fn graph_filter_view(filter: GraphFilter) -> Element(Msg) {
+  html.div([attribute.attribute("data-test-id", "graph-filter")], [
+    filter_input("graph-kind-input", "Kind", filter.kind, GraphKindChanged),
+    filter_input(
+      "graph-relationship-input",
+      "Relationship",
+      filter.relationship,
+      GraphRelationshipChanged,
+    ),
+    filter_input("graph-field-input", "Field", filter.field, GraphFieldChanged),
+    filter_input("graph-value-input", "Value", filter.value, GraphValueChanged),
+    html.button(
+      [
+        attribute.attribute("data-test-id", "graph-apply"),
+        event.on_click(GraphFilterApplied),
+      ],
+      [element.text("Apply")],
+    ),
+  ])
+}
+
+fn filter_input(
+  test_id: String,
+  placeholder: String,
+  value: String,
+  msg: fn(String) -> Msg,
+) -> Element(Msg) {
+  html.input([
+    attribute.attribute("data-test-id", test_id),
+    attribute.placeholder(placeholder),
+    attribute.value(value),
+    event.on_input(msg),
+  ])
+}
+
+fn graph_view(graph: Remote(shared.Graph)) -> Element(Msg) {
+  let summary = case graph {
+    Loading -> "Loading graph…"
+    Failed -> "Could not load graph"
+    Loaded(g) ->
+      int.to_string(list.length(g.nodes))
+      <> " nodes, "
+      <> int.to_string(list.length(g.edges))
+      <> " edges"
+  }
+  html.div([], [
+    html.p([attribute.attribute("data-test-id", "graph-summary")], [
+      element.text(summary),
+    ]),
+    html.div([attribute.attribute("data-test-id", "graph"), attribute.id("graph-canvas")], []),
+  ])
 }
 
 fn status(text: String) -> Element(Msg) {

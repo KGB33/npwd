@@ -22,6 +22,8 @@ fn model() -> client.Model {
     editing_node: None,
     edges: client.Loading,
     edge_form: client.EdgeForm("", "", ""),
+    graph: client.Loading,
+    graph_filter: client.GraphFilter("", "", "", ""),
   )
 }
 
@@ -220,6 +222,45 @@ pub fn edge_body_test() {
   assert json.to_string(client.edge_body(form)) == json.to_string(expected)
 }
 
+// ---- M4: filterable graph ----
+
+pub fn selecting_universe_loads_graph_test() {
+  let #(m, _) =
+    client.update(model(), client.UniverseSelected(universe("u:1", "A")))
+  assert m.graph == client.Loading
+  assert m.graph_filter == client.GraphFilter("", "", "", "")
+}
+
+pub fn graph_loaded_sets_graph_test() {
+  let g = shared.Graph([node("node:1", "Shire", shared.Place)], [])
+  let #(m, _) = client.update(model(), client.GraphLoaded(Ok(g)))
+  assert m.graph == client.Loaded(g)
+}
+
+pub fn graph_filter_changes_apply_test() {
+  let #(m, _) =
+    model()
+    |> client.update(client.GraphKindChanged("Person"))
+    |> fn(p) { client.update(p.0, client.GraphRelationshipChanged("knows")) }
+  let #(m, _) =
+    m
+    |> client.update(client.GraphFieldChanged("gender"))
+    |> fn(p) { client.update(p.0, client.GraphValueChanged("female")) }
+  assert m.graph_filter == client.GraphFilter("Person", "knows", "gender", "female")
+}
+
+pub fn graph_filter_applied_reloads_test() {
+  let opened = client.Model(..model(), selected: Some(universe("u:1", "A")))
+  let #(m, _) = client.update(opened, client.GraphFilterApplied)
+  assert m.graph == client.Loading
+}
+
+pub fn graph_query_only_includes_set_fields_test() {
+  assert client.graph_query(client.GraphFilter("", "", "", "")) == ""
+  assert client.graph_query(client.GraphFilter("Person", "", "gender", "male"))
+    == "?kind=Person&field=gender&value=male"
+}
+
 fn start() {
   simulate.application(client.init, client.update, client.view)
   |> simulate.start(Nil)
@@ -280,6 +321,22 @@ pub fn selected_view_shows_node_form_and_list_test() {
   assert query.has(
     simulate.view(sim),
     query.and(query.test_id("node-name"), query.text("Shire")),
+  )
+}
+
+pub fn selected_view_shows_graph_filter_and_container_test() {
+  let g = shared.Graph([node("node:1", "Shire", shared.Place)], [])
+  let sim =
+    start()
+    |> simulate.message(
+      client.UniverseSelected(universe("u:1", "Middle Earth")),
+    )
+    |> simulate.message(client.GraphLoaded(Ok(g)))
+  assert query.has(simulate.view(sim), query.test_id("graph-filter"))
+  assert query.has(simulate.view(sim), query.test_id("graph"))
+  assert query.has(
+    simulate.view(sim),
+    query.and(query.test_id("graph-summary"), query.text("1 nodes, 0 edges")),
   )
 }
 
