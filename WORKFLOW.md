@@ -162,10 +162,14 @@ repo root, but this is a **three-package monorepo**. Fix:
       the client — it only draws what the server returns. (Used a small dependency-free SVG
       renderer rather than pulling in cytoscape.js; same FFI seam.)
 
-### M5 — Timeline
-- [ ] Server: query returning `Event`-kind nodes (ordered by `when`) with their edges,
-      filterable by universe; tests.
-- [ ] Client: horizontal timeline rendering the server's result; events link to nodes.
+### M5 — Timeline ✅
+- [x] Server: query returning `Event`-kind nodes (ordered by `when`) with their edges,
+      universe-scoped; tests. (`db.timeline` reuses `shared.Graph`; ORDER BY
+      `when.year, when.month, when.day`; edges = incident to any event via `in IN $ids OR
+      out IN $ids`. Endpoint `GET /universes/:id/timeline`.)
+- [x] Client: timeline rendering the server's result; each event shows its date + name and
+      links to connected nodes (relationship → node name). No client-side ordering — it
+      draws what the server returns.
 
 ---
 
@@ -294,3 +298,18 @@ Append a dated line as milestones complete; update the checkboxes above.
     dependency in the Gleam→JS build; the FFI seam stays the same if swapped later.)
     Known tradeoff: Lustre owns `#graph-canvas`, so a future unrelated re-render could wipe
     the FFI-drawn SVG until the next `GraphLoaded`; acceptable for this milestone.
+- 2026-06-19 — **M5 complete** (116 tests passing: shared 9, server 71, client 36; no
+  warnings). Timeline = `Event` nodes ordered chronologically + their incident edges.
+  - **`db.timeline`** reuses `shared.Graph` (no new type): one multi-statement query
+    `LET $ns = SELECT * FROM node WHERE universe = type::thing($u) AND kind = "Event" ORDER
+    BY when.year, when.month, when.day; LET $ids = $ns.id; LET $es = SELECT … FROM
+    relationship WHERE universe = … AND (in IN $ids OR out IN $ids) ORDER BY relationship;
+    RETURN { nodes: $ns, edges: $es };`. Note **incident edges use OR** (an event links out
+    to non-event nodes), unlike M4's subgraph which used AND to prune dangling edges.
+    Verified via curl that ORDER BY on the nested `when` object sorts chronologically.
+  - **Endpoint:** `GET /universes/:uid/timeline` (`server/src/server/timeline.gleam`), no
+    filters, routed before the universes catch-all.
+  - **Client:** `UniverseSelected` now batches `load_timeline` alongside nodes/edges/graph.
+    `timeline_view` renders an `<ol>` of events (server already ordered) — each shows its
+    `when` date + name and an inner list of links (`relationship → node name`, resolved
+    against the loaded node list). No client-side ordering or filtering.
