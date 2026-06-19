@@ -384,6 +384,21 @@ pub fn subgraph(
   )
 }
 
+pub fn timeline(
+  config: Config,
+  universe: String,
+) -> Result(shared.Graph, DbError) {
+  query_vars(
+    config,
+    "LET $ns = SELECT * FROM node WHERE universe = type::thing($u) AND kind = \"Event\" ORDER BY when.year, when.month, when.day;
+     LET $ids = $ns.id;
+     LET $es = SELECT id, in AS from, out AS to, relationship, universe FROM relationship WHERE universe = type::thing($u) AND (in IN $ids OR out IN $ids) ORDER BY relationship;
+     RETURN { nodes: $ns, edges: $es };",
+    [#("u", json.string(universe))],
+    shared.graph_decoder(),
+  )
+}
+
 fn opt_string(value: Option(String)) -> Json {
   case value {
     Some(s) -> json.string(s)
