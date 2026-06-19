@@ -219,6 +219,79 @@ pub fn delete_universe(
   )
 }
 
+pub fn list_nodes(
+  config: Config,
+  universe: String,
+) -> Result(List(shared.Node), DbError) {
+  query_vars(
+    config,
+    "SELECT * FROM node WHERE universe = type::thing($u) ORDER BY name",
+    [#("u", json.string(universe))],
+    decode.list(shared.node_decoder()),
+  )
+}
+
+pub fn create_node(
+  config: Config,
+  universe: String,
+  name: String,
+  description: String,
+  kind: shared.NodeKind,
+) -> Result(shared.Node, DbError) {
+  query_first(
+    config,
+    "CREATE node CONTENT $data",
+    [#("data", shared.node_content_to_json(universe, name, description, kind))],
+    shared.node_decoder(),
+  )
+}
+
+pub fn get_node(
+  config: Config,
+  universe: String,
+  id: String,
+) -> Result(shared.Node, DbError) {
+  query_first(
+    config,
+    "SELECT * FROM type::thing($id) WHERE universe = type::thing($u)",
+    [#("id", json.string(id)), #("u", json.string(universe))],
+    shared.node_decoder(),
+  )
+}
+
+pub fn update_node(
+  config: Config,
+  universe: String,
+  id: String,
+  name: String,
+  description: String,
+  kind: shared.NodeKind,
+) -> Result(shared.Node, DbError) {
+  query_first(
+    config,
+    "UPDATE type::thing($id) CONTENT $data WHERE universe = type::thing($u)",
+    [
+      #("id", json.string(id)),
+      #("u", json.string(universe)),
+      #("data", shared.node_content_to_json(universe, name, description, kind)),
+    ],
+    shared.node_decoder(),
+  )
+}
+
+pub fn delete_node(
+  config: Config,
+  universe: String,
+  id: String,
+) -> Result(shared.Node, DbError) {
+  query_first(
+    config,
+    "DELETE type::thing($id) WHERE universe = type::thing($u) RETURN BEFORE",
+    [#("id", json.string(id)), #("u", json.string(universe))],
+    shared.node_decoder(),
+  )
+}
+
 pub fn apply_schema(config: Config) -> Result(Nil, DbError) {
   case load_schema() {
     Ok(surql) -> execute(config, surql)
