@@ -13,7 +13,7 @@ pub fn handle_request(config: db.Config, req: Request) -> Response {
   use <- wisp.log_request(req)
   use <- wisp.rescue_crashes
   use req <- wisp.handle_head(req)
-  use <- wisp.serve_static(req, under: "/static", from: static_directory())
+  use <- wisp.serve_static(req, under: "/", from: static_directory())
 
   case wisp.path_segments(req) {
     [] -> index(req)

@@ -22,6 +22,7 @@
             erlang_27
             rebar3
             nodejs
+            bun
             surrealdb
           ];
         };

@@ -40,18 +40,21 @@ nix develop
 
 ### 1. Build the client bundle
 
-The client compiles to JavaScript and is bundled into `server/priv/static/client.mjs`, which
-the server serves. From the repo root:
+The client compiles to JavaScript. `lustre/dev build` bundles it into
+`server/priv/static/` (producing `client.js` and an `index.html`), which the server serves:
 
 ```sh
 cd client
-gleam build --target javascript
-npx --yes esbuild build/dev/javascript/client/client.mjs \
-  --bundle --format=esm --outfile=../server/priv/static/client.mjs
+gleam run -m lustre/dev build --outdir=../server/priv/static
 ```
 
-Re-run this whenever you change client code. (The bundle is a generated artifact and is
-git-ignored.)
+Re-run this whenever you change client code. (`client.js` and `index.html` are generated
+artifacts and are git-ignored.)
+
+> The bundler uses Bun. `client/gleam.toml` sets `[tools.lustre.bin] bun = "system"` so it
+> uses the Bun from the Nix dev shell rather than downloading a prebuilt binary (the
+> downloaded one won't run on NixOS). The first build also compiles the dev tools, so it
+> takes a little longer than later ones.
 
 ### 2. Start SurrealDB
 
