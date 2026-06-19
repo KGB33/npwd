@@ -116,8 +116,9 @@ repo root, but this is a **three-package monorepo**. Fix:
 
 ## Git workflow
 
-- Currently on `main`. Do work on a **feature branch per milestone**; commit when the
-  user asks. Co-author trailer: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
+- **Work directly on `main` — no feature branches.** (M0–M4 milestone branches were
+  rebased/fast-forwarded into `main` on 2026-06-19 and deleted.) Commit per logical step.
+  Co-author trailer: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
 - **Never GPG-sign commits** — always commit with signing off (`--no-gpg-sign`).
 
 ---
