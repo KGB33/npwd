@@ -24,8 +24,7 @@ pub fn create_person_round_trips_test() {
   let config = helpers.fresh_db()
   let u = universe(config, "Middle Earth")
   let kind = shared.Person(shared.Date(2968, 9, 22), "male")
-  let assert Ok(node) =
-    db.create_node(config, u, "Frodo", "Ring-bearer", kind)
+  let assert Ok(node) = db.create_node(config, u, "Frodo", "Ring-bearer", kind)
   assert node.kind == kind
   let assert Ok(fetched) = db.get_node(config, u, node.id)
   assert fetched == node
