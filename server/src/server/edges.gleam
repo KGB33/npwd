@@ -45,6 +45,7 @@ fn list(config: db.Config, universe: String) -> Response {
       json.array(edges, shared.edge_to_json)
       |> json.to_string
       |> wisp.json_response(200)
+    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
     Error(_) -> wisp.internal_server_error()
   }
 }
@@ -63,6 +64,7 @@ fn create(config: db.Config, req: Request, universe: String) -> Response {
         )
       {
         Ok(edge) -> single(edge, 201)
+        Error(db.InvalidInput) -> wisp.bad_request("invalid id")
         Error(_) -> wisp.internal_server_error()
       }
     Error(_) -> wisp.bad_request("invalid edge")
@@ -73,6 +75,7 @@ fn delete(config: db.Config, universe: String, id: String) -> Response {
   case db.delete_edge(config, universe, id) {
     Ok(_) -> wisp.no_content()
     Error(db.NotFound) -> wisp.not_found()
+    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
     Error(_) -> wisp.internal_server_error()
   }
 }
@@ -81,6 +84,7 @@ fn respond_one(result: Result(shared.Edge, db.DbError)) -> Response {
   case result {
     Ok(edge) -> single(edge, 200)
     Error(db.NotFound) -> wisp.not_found()
+    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
     Error(_) -> wisp.internal_server_error()
   }
 }

@@ -73,6 +73,7 @@ fn delete(config: db.Config, id: String) -> Response {
   case db.delete_universe(config, id) {
     Ok(_) -> wisp.no_content()
     Error(db.NotFound) -> wisp.not_found()
+    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
     Error(_) -> wisp.internal_server_error()
   }
 }
@@ -81,6 +82,7 @@ fn respond_one(result: Result(shared.Universe, db.DbError)) -> Response {
   case result {
     Ok(universe) -> single(universe, 200)
     Error(db.NotFound) -> wisp.not_found()
+    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
     Error(_) -> wisp.internal_server_error()
   }
 }

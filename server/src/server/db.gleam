@@ -9,6 +9,7 @@ import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
+import gleam/string
 import shared
 import simplifile
 
@@ -31,6 +32,31 @@ pub type DbError {
   NoResult
   NotFound
   SchemaError
+  InvalidInput
+}
+
+const id_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+
+pub fn valid_id(s: String) -> Bool {
+  case string.split_once(s, ":") {
+    Ok(#(table, id)) -> is_ident(table) && is_ident(id)
+    Error(_) -> False
+  }
+}
+
+fn is_ident(s: String) -> Bool {
+  s != ""
+  && list.all(string.to_graphemes(s), fn(c) { string.contains(id_chars, c) })
+}
+
+fn require_valid(
+  ids: List(String),
+  then: fn() -> Result(a, DbError),
+) -> Result(a, DbError) {
+  case list.all(ids, valid_id) {
+    True -> then()
+    False -> Error(InvalidInput)
+  }
 }
 
 pub fn default_config() -> Config {
@@ -181,6 +207,7 @@ pub fn get_universe(
   config: Config,
   id: String,
 ) -> Result(shared.Universe, DbError) {
+  use <- require_valid([id])
   query_first(
     config,
     "SELECT * FROM type::thing($id)",
@@ -195,6 +222,7 @@ pub fn update_universe(
   name: String,
   description: String,
 ) -> Result(shared.Universe, DbError) {
+  use <- require_valid([id])
   query_first(
     config,
     "UPDATE type::thing($id) MERGE { name: $name, description: $description }",
@@ -211,6 +239,7 @@ pub fn delete_universe(
   config: Config,
   id: String,
 ) -> Result(shared.Universe, DbError) {
+  use <- require_valid([id])
   query_first(
     config,
     "DELETE type::thing($id) RETURN BEFORE",
@@ -223,6 +252,7 @@ pub fn list_nodes(
   config: Config,
   universe: String,
 ) -> Result(List(shared.Node), DbError) {
+  use <- require_valid([universe])
   query_vars(
     config,
     "SELECT * FROM node WHERE universe = type::thing($u) ORDER BY name",
@@ -238,6 +268,7 @@ pub fn create_node(
   description: String,
   kind: shared.NodeKind,
 ) -> Result(shared.Node, DbError) {
+  use <- require_valid([universe])
   query_first(
     config,
     "CREATE node CONTENT $data",
@@ -251,6 +282,7 @@ pub fn get_node(
   universe: String,
   id: String,
 ) -> Result(shared.Node, DbError) {
+  use <- require_valid([id, universe])
   query_first(
     config,
     "SELECT * FROM type::thing($id) WHERE universe = type::thing($u)",
@@ -267,6 +299,7 @@ pub fn update_node(
   description: String,
   kind: shared.NodeKind,
 ) -> Result(shared.Node, DbError) {
+  use <- require_valid([id, universe])
   query_first(
     config,
     "UPDATE type::thing($id) CONTENT $data WHERE universe = type::thing($u)",
@@ -284,6 +317,7 @@ pub fn delete_node(
   universe: String,
   id: String,
 ) -> Result(shared.Node, DbError) {
+  use <- require_valid([id, universe])
   query_first(
     config,
     "DELETE type::thing($id) WHERE universe = type::thing($u) RETURN BEFORE",
@@ -296,6 +330,7 @@ pub fn list_edges(
   config: Config,
   universe: String,
 ) -> Result(List(shared.Edge), DbError) {
+  use <- require_valid([universe])
   query_vars(
     config,
     "SELECT id, in AS from, out AS to, relationship, universe FROM relationship WHERE universe = type::thing($u) ORDER BY relationship",
@@ -311,6 +346,7 @@ pub fn create_edge(
   from: String,
   to: String,
 ) -> Result(shared.Edge, DbError) {
+  use <- require_valid([universe, from, to])
   query_first(
     config,
     "LET $f = type::thing($from); LET $t = type::thing($to); RELATE $f->relationship->$t CONTENT { universe: type::thing($u), relationship: $rel } RETURN id, in AS from, out AS to, relationship, universe",
@@ -329,6 +365,7 @@ pub fn get_edge(
   universe: String,
   id: String,
 ) -> Result(shared.Edge, DbError) {
+  use <- require_valid([id, universe])
   query_first(
     config,
     "SELECT id, in AS from, out AS to, relationship, universe FROM type::thing($id) WHERE universe = type::thing($u)",
@@ -342,6 +379,7 @@ pub fn delete_edge(
   universe: String,
   id: String,
 ) -> Result(shared.Edge, DbError) {
+  use <- require_valid([id, universe])
   query_first(
     config,
     "DELETE type::thing($id) WHERE universe = type::thing($u) RETURN BEFORE",
@@ -367,6 +405,7 @@ pub fn subgraph(
   field: Option(String),
   value: Option(String),
 ) -> Result(shared.Graph, DbError) {
+  use <- require_valid([universe])
   query_vars(
     config,
     "LET $ns = SELECT * FROM node WHERE universe = type::thing($u) AND ($kind = NULL OR kind = $kind) AND ($field = NULL OR $this[$field] = $value) ORDER BY name;
@@ -388,6 +427,7 @@ pub fn timeline(
   config: Config,
   universe: String,
 ) -> Result(shared.Graph, DbError) {
+  use <- require_valid([universe])
   query_vars(
     config,
     "LET $ns = SELECT * FROM node WHERE universe = type::thing($u) AND kind = \"Event\" ORDER BY when.year, when.month, when.day;

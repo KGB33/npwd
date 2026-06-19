@@ -49,6 +49,25 @@ pub fn query_error_surfaces_test() {
   assert result != Ok(Nil)
 }
 
+pub fn valid_id_test() {
+  assert db.valid_id("node:abc123")
+  assert db.valid_id("universe:XYZ_9")
+  assert !db.valid_id("")
+  assert !db.valid_id("garbage")
+  assert !db.valid_id("node:")
+  assert !db.valid_id(":abc")
+  assert !db.valid_id("node:ab-c")
+  assert !db.valid_id("node:ab c")
+  assert !db.valid_id("node:abc:def")
+}
+
+pub fn create_edge_rejects_malformed_ids_test() {
+  let config = fresh_config()
+  let assert Ok(Nil) = db.apply_schema(config)
+  assert db.create_edge(config, "universe:x", "knows", "", "node:y")
+    == Error(db.InvalidInput)
+}
+
 pub fn bound_param_select_test() {
   let config = fresh_config()
   let assert Ok(Nil) = db.apply_schema(config)

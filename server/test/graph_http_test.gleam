@@ -83,6 +83,14 @@ pub fn is_universe_scoped_test() {
   assert list.map(g.nodes, fn(n) { n.name }) == ["a1"]
 }
 
+pub fn malformed_universe_is_400_test() {
+  let config = helpers.fresh_db()
+  let response =
+    simulate.request(http.Get, "/universes/garbage/graph")
+    |> router.handle_request(config, _)
+  assert response.status == 400
+}
+
 pub fn wrong_method_is_405_test() {
   let config = helpers.fresh_db()
   let u = universe(config, "Middle Earth")

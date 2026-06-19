@@ -112,6 +112,14 @@ pub fn create_invalid_body_is_400_test() {
   assert response.status == 400
 }
 
+pub fn malformed_id_is_400_test() {
+  let config = helpers.fresh_db()
+  let response =
+    simulate.request(http.Get, "/universes/garbage")
+    |> router.handle_request(config, _)
+  assert response.status == 400
+}
+
 pub fn wrong_method_is_405_test() {
   let config = helpers.fresh_db()
   let response =
