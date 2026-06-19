@@ -4,3 +4,6 @@ build/
 erl_crash.dump
 
 .direnv/
+
+# Generated client bundle (built from client/ via esbuild)
+server/priv/static/client.mjs

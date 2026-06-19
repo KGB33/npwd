@@ -6,6 +6,7 @@ import server/graph
 import server/nodes
 import server/timeline
 import server/universes
+import simplifile
 import wisp.{type Request, type Response}
 
 pub fn handle_request(config: db.Config, req: Request) -> Response {
@@ -15,6 +16,7 @@ pub fn handle_request(config: db.Config, req: Request) -> Response {
   use <- wisp.serve_static(req, under: "/static", from: static_directory())
 
   case wisp.path_segments(req) {
+    [] -> index(req)
     ["health"] -> health(req)
     ["universes", uid, "nodes", ..rest] -> nodes.handle(config, req, uid, rest)
     ["universes", uid, "edges", ..rest] -> edges.handle(config, req, uid, rest)
@@ -22,6 +24,14 @@ pub fn handle_request(config: db.Config, req: Request) -> Response {
     ["universes", uid, "timeline"] -> timeline.handle(config, req, uid)
     ["universes", ..rest] -> universes.handle(config, req, rest)
     _ -> wisp.not_found()
+  }
+}
+
+fn index(req: Request) -> Response {
+  use <- wisp.require_method(req, Get)
+  case simplifile.read(static_directory() <> "/index.html") {
+    Ok(html) -> wisp.html_response(html, 200)
+    Error(_) -> wisp.not_found()
   }
 }
 

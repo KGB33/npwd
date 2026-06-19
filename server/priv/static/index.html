@@ -4,7 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>NPWD</title>
-    <script type="module" src="/static/client.mjs"></script>
+    <script type="module">
+      import { main } from "/static/client.mjs";
+      main();
+    </script>
   </head>
   <body>
     <div id="app"></div>
