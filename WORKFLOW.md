@@ -142,9 +142,9 @@ repo root, but this is a **three-package monorepo**. Fix:
       + `db.gleam` queries + handler/integration tests.
 - [x] Client: universe list + create/edit/delete views.
 
-### M2 — Nodes (generic nouns, all kinds incl. Event/Place)
-- [ ] Server: CRUD scoped to universe, `kind` + `data` jsonb; tests.
-- [ ] Client: node list + create/edit views per kind.
+### M2 — Nodes (generic nouns, all kinds incl. Event/Place) ✅
+- [x] Server: CRUD scoped to universe, `kind` + per-kind fields; tests.
+- [x] Client: node list + create/edit views per kind.
 
 ### M3 — Edges / relationships
 - [ ] Server: directed edges via `RELATE node->relationship->node` between any two nodes;
@@ -217,3 +217,25 @@ Append a dated line as milestones complete; update the checkboxes above.
     `/universes` instead of editing client state, keeping the server authoritative.
   - **Test helper** `server/test/helpers.gleam` (`fresh_config`/`fresh_db`) gives each
     integration test an isolated database.
+- 2026-06-19 — **M2 complete** (branch `m2-nodes`, 70 tests passing: shared 8,
+  server 41, client 21). Decisions:
+  - **Whole-node create/update via `CREATE/UPDATE … CONTENT $data`** with one bound
+    `$data` JSON object (`shared.node_content_to_json`). Verified empirically that
+    SurrealDB **coerces a plain string `"universe:xxx"` into the `record<universe>`
+    link**, so the content object carries `universe` as a string — no `type::thing`
+    juggling for the link itself. Nested `dob`/`when` Date objects and Generic `fields`
+    store/return as-is in the SCHEMALESS table. CONTENT replaces the whole record, so
+    changing a node's kind cleanly drops the old kind's fields.
+  - **Nodes are universe-scoped end to end:** routes nest under
+    `/universes/:uid/nodes[/:nid]` (router matches the nested pattern *before*
+    `["universes", ..rest]`). get/update/delete add `WHERE universe = type::thing($u)`,
+    so reaching a node via the wrong universe path → empty → 404 (tested).
+  - **Shared codec reuse:** extracted `shared.node_kind_decoder()` (used by
+    `node_decoder` via `decode.then`) and the server's node `input_decoder`; added
+    `shared.node_content_to_json` for the create/update payload.
+  - **Client:** selecting a universe opens its node manager (`selected`/`nodes` in the
+    model); a kind `<select>` (`event.on_change`) swaps the per-kind sub-form
+    (`KindForm`: Person/Place/Event/Generic). Generic fields are dynamic key/value
+    string rows (add/remove); empty keys are dropped when building the body.
+    `node_body` is public so the body-building is unit-tested directly. Same
+    display-only discipline: every node mutation re-fetches the universe's nodes.
