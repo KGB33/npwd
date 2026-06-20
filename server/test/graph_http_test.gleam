@@ -44,15 +44,17 @@ pub fn returns_full_subgraph_test() {
   assert list.length(g.edges) == 1
 }
 
-pub fn filters_by_kind_test() {
+pub fn filters_by_endpoint_pattern_test() {
   let config = helpers.fresh_db()
   let u = universe(config, "Middle Earth")
+  let gandalf = person(config, u, "Gandalf", "male")
   let frodo = person(config, u, "Frodo", "male")
   let shire = place(config, u, "Shire")
-  let assert Ok(_) = db.create_edge(config, u, "lives_in", frodo, shire)
-  let g = get(config, "/universes/" <> u <> "/graph?kind=Place")
-  assert list.map(g.nodes, fn(n) { n.name }) == ["Shire"]
-  assert g.edges == []
+  let assert Ok(_) = db.create_edge(config, u, "befriends", gandalf, frodo)
+  let assert Ok(_) = db.create_edge(config, u, "visits", gandalf, shire)
+  let g = get(config, "/universes/" <> u <> "/graph?from=Gandalf&to=Person")
+  assert list.map(g.nodes, fn(n) { n.name }) == ["Frodo", "Gandalf"]
+  assert list.map(g.edges, fn(e) { e.relationship }) == ["befriends"]
 }
 
 pub fn filters_by_arbitrary_field_test() {
@@ -69,7 +71,7 @@ pub fn empty_param_is_no_filter_test() {
   let u = universe(config, "Middle Earth")
   let _ = person(config, u, "Frodo", "male")
   let _ = place(config, u, "Shire")
-  let g = get(config, "/universes/" <> u <> "/graph?kind=")
+  let g = get(config, "/universes/" <> u <> "/graph?from=")
   assert list.length(g.nodes) == 2
 }
 

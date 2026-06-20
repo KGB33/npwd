@@ -14,8 +14,9 @@ pub fn handle(config: db.Config, req: Request, universe: String) -> Response {
     db.subgraph(
       config,
       universe,
-      param(query, "kind"),
+      param(query, "from"),
       param(query, "relationship"),
+      param(query, "to"),
       param(query, "field"),
       param(query, "value"),
     )

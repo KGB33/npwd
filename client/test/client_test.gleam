@@ -25,7 +25,7 @@ fn blank() -> model.Model {
     edges: model.Loading,
     edge_form: model.EdgeForm("", "", ""),
     graph: model.Loading,
-    graph_filter: model.GraphFilter("", "", "", ""),
+    graph_filter: model.GraphFilter("", "", "", "", ""),
     timeline: model.Loading,
   )
 }
@@ -252,7 +252,7 @@ pub fn selecting_universe_loads_graph_test() {
   let #(m, _) =
     client.update(blank(), model.UniverseSelected(universe("u:1", "A")))
   assert m.graph == model.Loading
-  assert m.graph_filter == model.GraphFilter("", "", "", "")
+  assert m.graph_filter == model.GraphFilter("", "", "", "", "")
 }
 
 pub fn graph_loaded_sets_graph_test() {
@@ -264,14 +264,15 @@ pub fn graph_loaded_sets_graph_test() {
 pub fn graph_filter_changes_apply_test() {
   let #(m, _) =
     blank()
-    |> client.update(model.GraphKindChanged("Person"))
-    |> fn(p) { client.update(p.0, model.GraphRelationshipChanged("knows")) }
+    |> client.update(model.GraphFromChanged("Gandalf"))
+    |> fn(p) { client.update(p.0, model.GraphRelationshipChanged("befriends")) }
   let #(m, _) =
     m
-    |> client.update(model.GraphFieldChanged("gender"))
-    |> fn(p) { client.update(p.0, model.GraphValueChanged("female")) }
+    |> client.update(model.GraphToChanged("Person"))
+    |> fn(p) { client.update(p.0, model.GraphFieldChanged("gender")) }
+  let #(m, _) = client.update(m, model.GraphValueChanged("female"))
   assert m.graph_filter
-    == model.GraphFilter("Person", "knows", "gender", "female")
+    == model.GraphFilter("Gandalf", "befriends", "Person", "gender", "female")
 }
 
 pub fn graph_filter_applied_reloads_test() {
@@ -280,10 +281,29 @@ pub fn graph_filter_applied_reloads_test() {
   assert m.graph == model.Loading
 }
 
+pub fn graph_filter_cleared_resets_and_reloads_test() {
+  let filter = model.GraphFilter("Gandalf", "befriends", "Person", "", "")
+  let opened =
+    model.Model(
+      ..blank(),
+      selected: Some(universe("u:1", "A")),
+      graph_filter: filter,
+    )
+  let #(m, _) = client.update(opened, model.GraphFilterCleared)
+  assert m.graph == model.Loading
+  assert m.graph_filter == model.empty_graph_filter
+}
+
 pub fn graph_query_only_includes_set_fields_test() {
-  assert model.graph_query(model.GraphFilter("", "", "", "")) == ""
-  assert model.graph_query(model.GraphFilter("Person", "", "gender", "male"))
-    == "?kind=Person&field=gender&value=male"
+  assert model.graph_query(model.GraphFilter("", "", "", "", "")) == ""
+  assert model.graph_query(model.GraphFilter(
+      "Gandalf",
+      "befriends",
+      "Person",
+      "gender",
+      "male",
+    ))
+    == "?from=Gandalf&relationship=befriends&to=Person&field=gender&value=male"
 }
 
 // ---- M5: timeline ----

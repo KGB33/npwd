@@ -34,7 +34,13 @@ pub type EdgeForm {
 }
 
 pub type GraphFilter {
-  GraphFilter(kind: String, relationship: String, field: String, value: String)
+  GraphFilter(
+    from: String,
+    relationship: String,
+    to: String,
+    field: String,
+    value: String,
+  )
 }
 
 pub type Model {
@@ -93,11 +99,13 @@ pub type Msg {
   EdgeDeleteRequested(String)
   EdgeDeleteResolved(Result(String, rsvp.Error(String)))
   GraphLoaded(Result(shared.Graph, rsvp.Error(String)))
-  GraphKindChanged(String)
+  GraphFromChanged(String)
   GraphRelationshipChanged(String)
+  GraphToChanged(String)
   GraphFieldChanged(String)
   GraphValueChanged(String)
   GraphFilterApplied
+  GraphFilterCleared
   TimelineLoaded(Result(shared.Graph, rsvp.Error(String)))
 }
 
@@ -108,8 +116,9 @@ pub const empty_node_form = NodeForm(name: "", description: "", kind: PlaceForm)
 pub const empty_edge_form = EdgeForm(relationship: "", from: "", to: "")
 
 pub const empty_graph_filter = GraphFilter(
-  kind: "",
+  from: "",
   relationship: "",
+  to: "",
   field: "",
   value: "",
 )
@@ -117,8 +126,9 @@ pub const empty_graph_filter = GraphFilter(
 pub fn graph_query(filter: GraphFilter) -> String {
   let pairs =
     [
-      #("kind", filter.kind),
+      #("from", filter.from),
       #("relationship", filter.relationship),
+      #("to", filter.to),
       #("field", filter.field),
       #("value", filter.value),
     ]
@@ -324,6 +334,14 @@ pub fn relationship_options(edges: Remote(List(shared.Edge))) -> List(String) {
     Loaded(list) -> distinct(list.map(list, fn(e) { e.relationship }))
     _ -> []
   }
+}
+
+pub fn endpoint_options(nodes: Remote(List(shared.Node))) -> List(String) {
+  let names = case nodes {
+    Loaded(list) -> list.map(list, fn(n) { n.name })
+    _ -> []
+  }
+  distinct(list.append(kind_options(), names))
 }
 
 pub fn gender_options(nodes: Remote(List(shared.Node))) -> List(String) {

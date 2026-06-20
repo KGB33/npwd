@@ -5,15 +5,15 @@ import client/model.{
   EdgeToSelected, EdgesLoaded, EditCancelled, EditStarted, Failed, Form,
   GenderChanged, GenericFieldAdded, GenericFieldRemoved, GenericForm,
   GenericKeyChanged, GenericValueChanged, GraphFieldChanged, GraphFilter,
-  GraphFilterApplied, GraphKindChanged, GraphLoaded, GraphRelationshipChanged,
-  GraphValueChanged, KindSelected, Loaded, Loading, Model, MonthChanged,
-  NameChanged, NodeDeleteRequested, NodeDeleteResolved, NodeDescriptionChanged,
-  NodeEditCancelled, NodeEditStarted, NodeForm, NodeNameChanged, NodeSaved,
-  NodeSubmitted, NodesLoaded, PersonForm, Saved, Submitted, TimelineLoaded,
-  UniverseDeselected, UniverseSelected, UniversesLoaded, YearChanged,
-  default_kind, edge_body, edge_submittable, empty_edge_form, empty_form,
-  empty_graph_filter, empty_node_form, graph_query, node_body, node_to_form,
-  set_date, set_kind, update_at,
+  GraphFilterApplied, GraphFilterCleared, GraphFromChanged, GraphLoaded,
+  GraphRelationshipChanged, GraphToChanged, GraphValueChanged, KindSelected,
+  Loaded, Loading, Model, MonthChanged, NameChanged, NodeDeleteRequested,
+  NodeDeleteResolved, NodeDescriptionChanged, NodeEditCancelled, NodeEditStarted,
+  NodeForm, NodeNameChanged, NodeSaved, NodeSubmitted, NodesLoaded, PersonForm,
+  Saved, Submitted, TimelineLoaded, UniverseDeselected, UniverseSelected,
+  UniversesLoaded, YearChanged, default_kind, edge_body, edge_submittable,
+  empty_edge_form, empty_form, empty_graph_filter, empty_node_form, graph_query,
+  node_body, node_to_form, set_date, set_kind, update_at,
 }
 import client/view
 import gleam/dynamic/decode
@@ -389,8 +389,8 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       render_graph(graph),
     )
     GraphLoaded(Error(_)) -> #(Model(..model, graph: Failed), effect.none())
-    GraphKindChanged(kind) -> #(
-      Model(..model, graph_filter: GraphFilter(..model.graph_filter, kind:)),
+    GraphFromChanged(from) -> #(
+      Model(..model, graph_filter: GraphFilter(..model.graph_filter, from:)),
       effect.none(),
     )
     GraphRelationshipChanged(relationship) -> #(
@@ -398,6 +398,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         ..model,
         graph_filter: GraphFilter(..model.graph_filter, relationship:),
       ),
+      effect.none(),
+    )
+    GraphToChanged(to) -> #(
+      Model(..model, graph_filter: GraphFilter(..model.graph_filter, to:)),
       effect.none(),
     )
     GraphFieldChanged(field) -> #(
@@ -415,6 +419,17 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           load_graph(universe.id, model.graph_filter),
         )
         None -> #(model, effect.none())
+      }
+    GraphFilterCleared ->
+      case model.selected {
+        Some(universe) -> #(
+          Model(..model, graph: Loading, graph_filter: empty_graph_filter),
+          load_graph(universe.id, empty_graph_filter),
+        )
+        None -> #(
+          Model(..model, graph_filter: empty_graph_filter),
+          effect.none(),
+        )
       }
     TimelineLoaded(Ok(timeline)) -> #(
       Model(..model, timeline: Loaded(timeline)),

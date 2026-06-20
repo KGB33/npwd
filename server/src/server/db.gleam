@@ -400,22 +400,27 @@ fn edge_before_decoder() -> Decoder(shared.Edge) {
 pub fn subgraph(
   config: Config,
   universe: String,
-  kind: Option(String),
+  from: Option(String),
   relationship: Option(String),
+  to: Option(String),
   field: Option(String),
   value: Option(String),
 ) -> Result(shared.Graph, DbError) {
   use <- require_valid([universe])
   query_vars(
     config,
-    "LET $ns = SELECT * FROM node WHERE universe = type::thing($u) AND ($kind = NULL OR kind = $kind) AND ($field = NULL OR $this[$field] = $value) ORDER BY name;
-     LET $ids = $ns.id;
-     LET $es = SELECT id, in AS from, out AS to, relationship, universe FROM relationship WHERE universe = type::thing($u) AND ($rel = NULL OR relationship = $rel) AND in IN $ids AND out IN $ids ORDER BY relationship;
+    "LET $matchns = SELECT * FROM node WHERE universe = type::thing($u) AND ($field = NULL OR $this[$field] = $value) ORDER BY name;
+     LET $matchids = $matchns.id;
+     LET $es = SELECT id, in AS from, out AS to, relationship, universe FROM relationship WHERE universe = type::thing($u) AND ($rel = NULL OR relationship = $rel) AND in IN $matchids AND out IN $matchids AND ($src = NULL OR in.kind = $src OR in.name = $src) AND ($dst = NULL OR out.kind = $dst OR out.name = $dst) ORDER BY relationship;
+     LET $pattern = $src != NULL OR $dst != NULL OR $rel != NULL;
+     LET $eids = array::distinct(array::concat($es.from, $es.to));
+     LET $ns = IF $pattern THEN (SELECT * FROM node WHERE id IN $eids ORDER BY name) ELSE $matchns END;
      RETURN { nodes: $ns, edges: $es };",
     [
       #("u", json.string(universe)),
-      #("kind", opt_string(kind)),
+      #("src", opt_string(from)),
       #("rel", opt_string(relationship)),
+      #("dst", opt_string(to)),
       #("field", opt_string(field)),
       #("value", opt_string(value)),
     ],

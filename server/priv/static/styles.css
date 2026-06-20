@@ -300,6 +300,21 @@ button:hover {
   min-width: 0;
 }
 
+/* graph filter: a path line (from — rel → to), then a key/value line */
+.panel .filter-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.75rem;
+  flex: 1 1 100%;
+}
+
+.panel .filter-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1 1 100%;
+}
+
 /* primary action: pressed in rubric red */
 .btn-primary {
   background: var(--madder);

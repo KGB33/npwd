@@ -35,19 +35,19 @@ pub fn all_returns_full_subgraph_test() {
   let shire = place(config, u, "Shire")
   let assert Ok(_) = db.create_edge(config, u, "lives_in", frodo, shire)
 
-  let assert Ok(g) = db.subgraph(config, u, None, None, None, None)
+  let assert Ok(g) = db.subgraph(config, u, None, None, None, None, None)
   assert names(g.nodes) == ["Frodo", "Shire"]
   assert rels(g.edges) == ["lives_in"]
 }
 
-pub fn filters_by_kind_and_prunes_dangling_edges_test() {
+pub fn filters_by_field_and_keeps_isolated_nodes_test() {
   let config = helpers.fresh_db()
   let u = universe(config, "Middle Earth")
-  let frodo = person(config, u, "Frodo", "male")
-  let shire = place(config, u, "Shire")
-  let assert Ok(_) = db.create_edge(config, u, "lives_in", frodo, shire)
+  let _ = person(config, u, "Frodo", "male")
+  let _ = place(config, u, "Shire")
 
-  let assert Ok(g) = db.subgraph(config, u, Some("Place"), None, None, None)
+  let assert Ok(g) =
+    db.subgraph(config, u, None, None, None, Some("kind"), Some("Place"))
   assert names(g.nodes) == ["Shire"]
   assert g.edges == []
 }
@@ -60,9 +60,41 @@ pub fn filters_by_relationship_test() {
   let assert Ok(_) = db.create_edge(config, u, "knows", a, b)
   let assert Ok(_) = db.create_edge(config, u, "hates", a, b)
 
-  let assert Ok(g) = db.subgraph(config, u, None, Some("knows"), None, None)
+  let assert Ok(g) = db.subgraph(config, u, None, Some("knows"), None, None, None)
   assert rels(g.edges) == ["knows"]
   assert list.length(g.nodes) == 2
+}
+
+pub fn filters_by_endpoint_kind_to_named_node_test() {
+  let config = helpers.fresh_db()
+  let u = universe(config, "Middle Earth")
+  let frodo = person(config, u, "Frodo", "male")
+  let sam = person(config, u, "Sam", "male")
+  let fall = place(config, u, "Fall of Sauron")
+  let shire = place(config, u, "Shire")
+  let assert Ok(_) = db.create_edge(config, u, "at", frodo, fall)
+  let assert Ok(_) = db.create_edge(config, u, "at", sam, fall)
+  let assert Ok(_) = db.create_edge(config, u, "lives_in", frodo, shire)
+
+  let assert Ok(g) =
+    db.subgraph(config, u, Some("Person"), None, Some("Fall of Sauron"), None, None)
+  assert names(g.nodes) == ["Fall of Sauron", "Frodo", "Sam"]
+  assert rels(g.edges) == ["at", "at"]
+}
+
+pub fn filters_by_named_endpoint_to_kind_test() {
+  let config = helpers.fresh_db()
+  let u = universe(config, "Middle Earth")
+  let gandalf = person(config, u, "Gandalf", "male")
+  let frodo = person(config, u, "Frodo", "male")
+  let shire = place(config, u, "Shire")
+  let assert Ok(_) = db.create_edge(config, u, "befriends", gandalf, frodo)
+  let assert Ok(_) = db.create_edge(config, u, "visits", gandalf, shire)
+
+  let assert Ok(g) =
+    db.subgraph(config, u, Some("Gandalf"), Some("befriends"), Some("Person"), None, None)
+  assert names(g.nodes) == ["Frodo", "Gandalf"]
+  assert rels(g.edges) == ["befriends"]
 }
 
 pub fn filters_by_arbitrary_field_test() {
@@ -73,7 +105,7 @@ pub fn filters_by_arbitrary_field_test() {
   let _ = person(config, u, "Sam", "male")
 
   let assert Ok(g) =
-    db.subgraph(config, u, None, None, Some("gender"), Some("female"))
+    db.subgraph(config, u, None, None, None, Some("gender"), Some("female"))
   assert names(g.nodes) == ["Eowyn"]
   let assert [n] = g.nodes
   assert n.id == eowyn
@@ -88,7 +120,7 @@ pub fn is_universe_scoped_test() {
   let _ = person(config, b, "b1", "male")
   let assert Ok(_) = db.create_edge(config, a, "knows", a1, a2)
 
-  let assert Ok(g) = db.subgraph(config, a, None, None, None, None)
+  let assert Ok(g) = db.subgraph(config, a, None, None, None, None, None)
   assert names(g.nodes) == ["a1", "a2"]
   assert rels(g.edges) == ["knows"]
 }
