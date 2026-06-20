@@ -40,16 +40,18 @@ nix develop
 
 ### 1. Build the client bundle
 
-The client compiles to JavaScript. `lustre/dev build` bundles it into
-`server/priv/static/` (producing `client.js` and an `index.html`), which the server serves:
+The client compiles to JavaScript. `lustre/dev build` also emits its own `index.html`, but
+we serve a hand-owned one (`server/priv/static/index.html`, which links `styles.css`), so
+build into a scratch dir and copy only the JS bundle across:
 
 ```sh
 cd client
-gleam run -m lustre/dev build --outdir=../server/priv/static
+gleam run -m lustre/dev build --outdir=build/static
+cp build/static/client.js ../server/priv/static/client.js
 ```
 
-Re-run this whenever you change client code. (`client.js` and `index.html` are generated
-artifacts and are git-ignored.)
+Re-run this whenever you change client code. (`client.js` is a generated artifact and is
+git-ignored; `index.html`, `styles.css`, and `fonts/` are hand-owned and committed.)
 
 > The bundler uses Bun. `client/gleam.toml` sets `[tools.lustre.bin] bun = "system"` so it
 > uses the Bun from the Nix dev shell rather than downloading a prebuilt binary (the

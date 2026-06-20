@@ -1,0 +1,184 @@
+/* NPWD — "Cartographer's Ledger"
+   A weathered registry: faded sepia ink on aged vellum, ruled entries,
+   a folio gutter in the margin. Plain CSS, custom properties, native nesting. */
+
+/* ---- Self-hosted faces (priv/static/fonts) ---------------------------- */
+@font-face {
+  font-family: "EB Garamond";
+  src: url("/fonts/eb-garamond-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "EB Garamond";
+  src: url("/fonts/eb-garamond-400-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "EB Garamond";
+  src: url("/fonts/eb-garamond-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "EB Garamond";
+  src: url("/fonts/eb-garamond-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IM Fell English";
+  src: url("/fonts/im-fell-english-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IM Fell English";
+  src: url("/fonts/im-fell-english-400-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ---- Tokens ----------------------------------------------------------- */
+:root {
+  --vellum: #e7d9b9;
+  --vellum-2: #ddcda6;
+  --vellum-edge: #d8c6a0;
+  --ink: #2b2117;
+  --sepia: #6f5b3e;
+  --rule: #b8a279;
+  --madder: #7a2e22;
+  --verdigris: #3f6b5e;
+
+  --display: "IM Fell English", "Hoefler Text", Georgia, serif;
+  --body: "EB Garamond", "Hoefler Text", Georgia, serif;
+
+  --measure: 58rem;
+  --gutter: 3.5rem;
+  --radius: 2px;
+}
+
+/* ---- Reset / base ----------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--body);
+  font-size: 1.15rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background-color: var(--vellum);
+  /* foxing: faint age-stains scattered across the leaf */
+  background-image:
+    radial-gradient(
+      ellipse at 17% 22%,
+      rgba(120, 90, 50, 0.1),
+      transparent 42%
+    ),
+    radial-gradient(ellipse at 83% 13%, rgba(120, 90, 50, 0.08), transparent 38%),
+    radial-gradient(ellipse at 72% 82%, rgba(110, 80, 45, 0.1), transparent 46%),
+    radial-gradient(ellipse at 28% 74%, rgba(120, 90, 50, 0.06), transparent 40%);
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  font-weight: 400;
+  color: var(--madder);
+  line-height: 1.1;
+  margin: 0 0 0.4em;
+}
+
+p {
+  margin: 0 0 0.75em;
+}
+
+a {
+  color: var(--verdigris);
+  text-underline-offset: 2px;
+}
+
+/* ---- Form controls: ink written on a ruled line ----------------------- */
+input,
+select,
+button {
+  font-family: var(--body);
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+input,
+select {
+  appearance: none;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  padding: 0.3rem 0.2rem;
+  line-height: 1.4;
+}
+
+input::placeholder {
+  color: var(--sepia);
+  opacity: 0.7;
+  font-style: italic;
+}
+
+input:focus,
+select:focus {
+  outline: 0;
+  border-bottom-color: var(--madder);
+  border-bottom-width: 2px;
+}
+
+select {
+  cursor: pointer;
+  padding-right: 1.2rem;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--vellum-2);
+  color: var(--ink);
+  padding: 0.3rem 0.7rem;
+  font-variant: small-caps;
+  letter-spacing: 0.03em;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+button:hover {
+  border-color: var(--ink);
+}
+
+/* ---- Accessibility floor --------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--madder);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
