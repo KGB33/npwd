@@ -15,18 +15,18 @@ pub fn edge_form_view(model: Model) -> Element(Msg) {
   html.div(
     [attribute.class("panel"), attribute.attribute("data-test-id", "edge-form")],
     [
+      node_select(
+        "edge-from-select",
+        model.edge_form.from,
+        model.nodes,
+        EdgeFromSelected,
+      ),
       ui.suggest_input(
         "edge-relationship-input",
         "Relationship",
         model.edge_form.relationship,
         EdgeRelationshipChanged,
         relationship_options(model.edges),
-      ),
-      node_select(
-        "edge-from-select",
-        model.edge_form.from,
-        model.nodes,
-        EdgeFromSelected,
       ),
       node_select(
         "edge-to-select",
