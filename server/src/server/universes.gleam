@@ -2,6 +2,7 @@ import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Delete, Get, Post, Put}
 import gleam/json
 import server/db
+import server/web
 import shared
 import wisp.{type Request, type Response}
 
@@ -44,7 +45,7 @@ fn list(config: db.Config) -> Response {
       json.array(universes, shared.universe_to_json)
       |> json.to_string
       |> wisp.json_response(200)
-    Error(_) -> wisp.internal_server_error()
+    Error(e) -> web.db_error(e)
   }
 }
 
@@ -54,7 +55,7 @@ fn create(config: db.Config, req: Request) -> Response {
     Ok(input) ->
       case db.create_universe(config, input.name, input.description) {
         Ok(universe) -> single(universe, 201)
-        Error(_) -> wisp.internal_server_error()
+        Error(e) -> web.db_error(e)
       }
     Error(_) -> wisp.bad_request("invalid universe")
   }
@@ -72,18 +73,14 @@ fn update(config: db.Config, req: Request, id: String) -> Response {
 fn delete(config: db.Config, id: String) -> Response {
   case db.delete_universe(config, id) {
     Ok(_) -> wisp.no_content()
-    Error(db.NotFound) -> wisp.not_found()
-    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
-    Error(_) -> wisp.internal_server_error()
+    Error(e) -> web.db_error(e)
   }
 }
 
 fn respond_one(result: Result(shared.Universe, db.DbError)) -> Response {
   case result {
     Ok(universe) -> single(universe, 200)
-    Error(db.NotFound) -> wisp.not_found()
-    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
-    Error(_) -> wisp.internal_server_error()
+    Error(e) -> web.db_error(e)
   }
 }
 

@@ -223,8 +223,9 @@ pub fn edge_body_test() {
   assert json.to_string(client.edge_body(form)) == json.to_string(expected)
 }
 
-pub fn edge_submittable_requires_from_and_to_test() {
+pub fn edge_submittable_requires_relationship_from_and_to_test() {
   assert client.edge_submittable(client.EdgeForm("knows", "node:1", "node:2"))
+  assert !client.edge_submittable(client.EdgeForm("", "node:1", "node:2"))
   assert !client.edge_submittable(client.EdgeForm("knows", "", "node:2"))
   assert !client.edge_submittable(client.EdgeForm("knows", "node:1", ""))
   assert !client.edge_submittable(client.EdgeForm("knows", "", ""))

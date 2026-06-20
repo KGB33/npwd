@@ -3,6 +3,7 @@ import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import server/db
+import server/web
 import shared
 import wisp.{type Request, type Response}
 
@@ -24,8 +25,7 @@ pub fn handle(config: db.Config, req: Request, universe: String) -> Response {
       |> shared.graph_to_json
       |> json.to_string
       |> wisp.json_response(200)
-    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
-    Error(_) -> wisp.internal_server_error()
+    Error(e) -> web.db_error(e)
   }
 }
 

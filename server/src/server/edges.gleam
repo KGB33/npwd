@@ -2,6 +2,7 @@ import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Delete, Get, Post}
 import gleam/json
 import server/db
+import server/web
 import shared
 import wisp.{type Request, type Response}
 
@@ -45,8 +46,7 @@ fn list(config: db.Config, universe: String) -> Response {
       json.array(edges, shared.edge_to_json)
       |> json.to_string
       |> wisp.json_response(200)
-    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
-    Error(_) -> wisp.internal_server_error()
+    Error(e) -> web.db_error(e)
   }
 }
 
@@ -64,8 +64,7 @@ fn create(config: db.Config, req: Request, universe: String) -> Response {
         )
       {
         Ok(edge) -> single(edge, 201)
-        Error(db.InvalidInput) -> wisp.bad_request("invalid id")
-        Error(_) -> wisp.internal_server_error()
+        Error(e) -> web.db_error(e)
       }
     Error(_) -> wisp.bad_request("invalid edge")
   }
@@ -74,18 +73,14 @@ fn create(config: db.Config, req: Request, universe: String) -> Response {
 fn delete(config: db.Config, universe: String, id: String) -> Response {
   case db.delete_edge(config, universe, id) {
     Ok(_) -> wisp.no_content()
-    Error(db.NotFound) -> wisp.not_found()
-    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
-    Error(_) -> wisp.internal_server_error()
+    Error(e) -> web.db_error(e)
   }
 }
 
 fn respond_one(result: Result(shared.Edge, db.DbError)) -> Response {
   case result {
     Ok(edge) -> single(edge, 200)
-    Error(db.NotFound) -> wisp.not_found()
-    Error(db.InvalidInput) -> wisp.bad_request("invalid id")
-    Error(_) -> wisp.internal_server_error()
+    Error(e) -> web.db_error(e)
   }
 }
 

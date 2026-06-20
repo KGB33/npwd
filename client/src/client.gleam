@@ -282,7 +282,7 @@ fn do_render_graph(_data: String) -> Nil {
 }
 
 pub fn edge_submittable(form: EdgeForm) -> Bool {
-  form.from != "" && form.to != ""
+  form.relationship != "" && form.from != "" && form.to != ""
 }
 
 pub fn edge_body(form: EdgeForm) -> Json {
