@@ -1,19 +1,20 @@
 import client/model.{
-  type GraphFilter, type Model, type Msg, DayChanged, DeleteRequested,
-  DeleteResolved, DescriptionChanged, EdgeDeleteRequested, EdgeDeleteResolved,
-  EdgeForm, EdgeFromSelected, EdgeRelationshipChanged, EdgeSaved, EdgeSubmitted,
+  type GraphFilter, type Model, type Msg, DeleteRequested, DeleteResolved,
+  DescriptionBodyChanged, DescriptionChanged, DescriptionDeleteRequested,
+  DescriptionDeleteResolved, DescriptionSaved, DescriptionSubmitted,
+  DescriptionsLoaded, EdgeDeleteRequested, EdgeDeleteResolved, EdgeForm,
+  EdgeFromSelected, EdgeRelationshipChanged, EdgeSaved, EdgeSubmitted,
   EdgeToSelected, EdgesLoaded, EditCancelled, EditStarted, Failed, Form,
-  GenderChanged, GenericFieldAdded, GenericFieldRemoved, GenericForm,
-  GenericKeyChanged, GenericValueChanged, GraphFieldChanged, GraphFilter,
-  GraphFilterApplied, GraphFilterCleared, GraphFromChanged, GraphLoaded,
-  GraphRelationshipChanged, GraphToChanged, GraphValueChanged, KindSelected,
-  Loaded, Loading, Model, MonthChanged, NameChanged, NodeDeleteRequested,
-  NodeDeleteResolved, NodeDescriptionChanged, NodeEditCancelled, NodeEditStarted,
-  NodeForm, NodeNameChanged, NodeSaved, NodeSubmitted, NodesLoaded, PersonForm,
-  Saved, Submitted, TimelineLoaded, UniverseDeselected, UniverseSelected,
-  UniversesLoaded, YearChanged, default_kind, edge_body, edge_submittable,
-  empty_edge_form, empty_form, empty_graph_filter, empty_node_form, graph_query,
-  node_body, node_to_form, set_date, set_kind, update_at,
+  GenericFieldAdded, GenericFieldRemoved, GenericKeyChanged, GenericValueChanged,
+  GraphFieldChanged, GraphFilter, GraphFilterApplied, GraphFilterCleared,
+  GraphFromChanged, GraphLoaded, GraphRelationshipChanged, GraphToChanged,
+  GraphValueChanged, Loaded, Loading, Model, NameChanged, NodeDeleteRequested,
+  NodeDeleteResolved, NodeEditCancelled, NodeEditStarted, NodeForm,
+  NodeKindChanged, NodeNameChanged, NodeSaved, NodeSubmitted, NodesLoaded, Saved,
+  Submitted, TimelineLoaded, UniverseDeselected, UniverseSelected,
+  UniversesLoaded, description_body, edge_body, edge_submittable, empty_edge_form,
+  empty_form, empty_graph_filter, empty_node_form, graph_query, node_body,
+  node_to_form, update_at,
 }
 import client/view
 import gleam/dynamic/decode
@@ -41,6 +42,8 @@ pub fn init(_args) -> #(Model, Effect(Msg)) {
       nodes: Loading,
       node_form: empty_node_form,
       editing_node: None,
+      descriptions: Loaded([]),
+      description_form: "",
       edges: Loading,
       edge_form: empty_edge_form,
       graph: Loading,
@@ -110,6 +113,67 @@ fn delete_node(model: Model, id: String) -> Effect(Msg) {
         json.null(),
         rsvp.expect_text(NodeDeleteResolved),
       )
+  }
+}
+
+fn descriptions_base(model: Model, node: String) -> Result(String, Nil) {
+  case model.selected {
+    Some(universe) ->
+      Ok("/universes/" <> universe.id <> "/nodes/" <> node <> "/descriptions")
+    None -> Error(Nil)
+  }
+}
+
+fn load_descriptions(universe: String, node: String) -> Effect(Msg) {
+  rsvp.get(
+    "/universes/" <> universe <> "/nodes/" <> node <> "/descriptions",
+    rsvp.expect_json(
+      decode.list(shared.description_decoder()),
+      DescriptionsLoaded,
+    ),
+  )
+}
+
+fn save_description(model: Model) -> Effect(Msg) {
+  case model.editing_node {
+    Some(node) ->
+      case descriptions_base(model, node) {
+        Ok(base) ->
+          rsvp.post(
+            base,
+            description_body(model.description_form),
+            rsvp.expect_json(shared.description_decoder(), DescriptionSaved),
+          )
+        Error(_) -> effect.none()
+      }
+    None -> effect.none()
+  }
+}
+
+fn delete_description(model: Model, id: String) -> Effect(Msg) {
+  case model.editing_node {
+    Some(node) ->
+      case descriptions_base(model, node) {
+        Ok(base) ->
+          rsvp.delete(
+            base <> "/" <> id,
+            json.null(),
+            rsvp.expect_text(DescriptionDeleteResolved),
+          )
+        Error(_) -> effect.none()
+      }
+    None -> effect.none()
+  }
+}
+
+fn set_fields(model: Model, fields: List(#(String, String))) -> Model {
+  Model(..model, node_form: NodeForm(..model.node_form, fields:))
+}
+
+fn reload_descriptions(model: Model) -> Effect(Msg) {
+  case model.selected, model.editing_node {
+    Some(universe), Some(node) -> load_descriptions(universe.id, node)
+    _, _ -> effect.none()
   }
 }
 
@@ -214,6 +278,8 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         nodes: Loading,
         node_form: empty_node_form,
         editing_node: None,
+        descriptions: Loaded([]),
+        description_form: "",
         edges: Loading,
         edge_form: empty_edge_form,
         graph: Loading,
@@ -247,82 +313,38 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       Model(..model, node_form: NodeForm(..model.node_form, name:)),
       effect.none(),
     )
-    NodeDescriptionChanged(description) -> #(
-      Model(..model, node_form: NodeForm(..model.node_form, description:)),
+    NodeKindChanged(kind) -> #(
+      Model(..model, node_form: NodeForm(..model.node_form, kind:)),
       effect.none(),
     )
-    KindSelected(name) -> #(
-      Model(
-        ..model,
-        node_form: NodeForm(..model.node_form, kind: default_kind(name)),
+    GenericKeyChanged(index, key) -> #(
+      set_fields(model, update_at(model.node_form.fields, index, fn(f) {
+        #(key, f.1)
+      })),
+      effect.none(),
+    )
+    GenericValueChanged(index, value) -> #(
+      set_fields(model, update_at(model.node_form.fields, index, fn(f) {
+        #(f.0, value)
+      })),
+      effect.none(),
+    )
+    GenericFieldAdded -> #(
+      set_fields(model, list.append(model.node_form.fields, [#("", "")])),
+      effect.none(),
+    )
+    GenericFieldRemoved(index) -> #(
+      set_fields(
+        model,
+        list.index_fold(model.node_form.fields, [], fn(acc, f, i) {
+          case i == index {
+            True -> acc
+            False -> list.append(acc, [f])
+          }
+        }),
       ),
       effect.none(),
     )
-    YearChanged(year) -> #(
-      set_date(model, Some(year), None, None),
-      effect.none(),
-    )
-    MonthChanged(month) -> #(
-      set_date(model, None, Some(month), None),
-      effect.none(),
-    )
-    DayChanged(day) -> #(set_date(model, None, None, Some(day)), effect.none())
-    GenderChanged(gender) ->
-      case model.node_form.kind {
-        PersonForm(y, m, d, _) -> #(
-          set_kind(model, PersonForm(y, m, d, gender)),
-          effect.none(),
-        )
-        _ -> #(model, effect.none())
-      }
-    GenericKeyChanged(index, key) ->
-      case model.node_form.kind {
-        GenericForm(fields) -> #(
-          set_kind(
-            model,
-            GenericForm(update_at(fields, index, fn(f) { #(key, f.1) })),
-          ),
-          effect.none(),
-        )
-        _ -> #(model, effect.none())
-      }
-    GenericValueChanged(index, value) ->
-      case model.node_form.kind {
-        GenericForm(fields) -> #(
-          set_kind(
-            model,
-            GenericForm(update_at(fields, index, fn(f) { #(f.0, value) })),
-          ),
-          effect.none(),
-        )
-        _ -> #(model, effect.none())
-      }
-    GenericFieldAdded ->
-      case model.node_form.kind {
-        GenericForm(fields) -> #(
-          set_kind(model, GenericForm(list.append(fields, [#("", "")]))),
-          effect.none(),
-        )
-        _ -> #(model, effect.none())
-      }
-    GenericFieldRemoved(index) ->
-      case model.node_form.kind {
-        GenericForm(fields) -> #(
-          set_kind(
-            model,
-            GenericForm(
-              list.index_fold(fields, [], fn(acc, f, i) {
-                case i == index {
-                  True -> acc
-                  False -> list.append(acc, [f])
-                }
-              }),
-            ),
-          ),
-          effect.none(),
-        )
-        _ -> #(model, effect.none())
-      }
     NodeSubmitted -> #(model, save_node(model))
     NodeSaved(Ok(_)) ->
       case model.selected {
@@ -334,11 +356,26 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       }
     NodeSaved(Error(_)) -> #(model, effect.none())
     NodeEditStarted(node) -> #(
-      Model(..model, editing_node: Some(node.id), node_form: node_to_form(node)),
-      effect.none(),
+      Model(
+        ..model,
+        editing_node: Some(node.id),
+        node_form: node_to_form(node),
+        descriptions: Loading,
+        description_form: "",
+      ),
+      case model.selected {
+        Some(universe) -> load_descriptions(universe.id, node.id)
+        None -> effect.none()
+      },
     )
     NodeEditCancelled -> #(
-      Model(..model, editing_node: None, node_form: empty_node_form),
+      Model(
+        ..model,
+        editing_node: None,
+        node_form: empty_node_form,
+        descriptions: Loaded([]),
+        description_form: "",
+      ),
       effect.none(),
     )
     NodeDeleteRequested(id) -> #(model, delete_node(model, id))
@@ -347,6 +384,30 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         Some(universe) -> #(model, load_nodes(universe.id))
         None -> #(model, effect.none())
       }
+    DescriptionsLoaded(Ok(descriptions)) -> #(
+      Model(..model, descriptions: Loaded(descriptions)),
+      effect.none(),
+    )
+    DescriptionsLoaded(Error(_)) -> #(
+      Model(..model, descriptions: Failed),
+      effect.none(),
+    )
+    DescriptionBodyChanged(description_form) -> #(
+      Model(..model, description_form:),
+      effect.none(),
+    )
+    DescriptionSubmitted ->
+      case model.description_form {
+        "" -> #(model, effect.none())
+        _ -> #(model, save_description(model))
+      }
+    DescriptionSaved(Ok(_)) -> #(
+      Model(..model, description_form: ""),
+      reload_descriptions(model),
+    )
+    DescriptionSaved(Error(_)) -> #(model, effect.none())
+    DescriptionDeleteRequested(id) -> #(model, delete_description(model, id))
+    DescriptionDeleteResolved(_) -> #(model, reload_descriptions(model))
     EdgesLoaded(Ok(edges)) -> #(
       Model(..model, edges: Loaded(edges)),
       effect.none(),

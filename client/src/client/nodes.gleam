@@ -1,10 +1,9 @@
 import client/model.{
-  type KindForm, type Model, type Msg, type Remote, DayChanged, EventForm,
-  Failed, GenderChanged, GenericFieldAdded, GenericFieldRemoved, GenericForm,
-  GenericKeyChanged, GenericValueChanged, KindSelected, Loaded, Loading,
-  MonthChanged, NodeDeleteRequested, NodeDescriptionChanged, NodeEditCancelled,
-  NodeEditStarted, NodeNameChanged, NodeSubmitted, PersonForm, PlaceForm,
-  YearChanged, field_key_options, gender_options, kind_label, kind_name,
+  type Model, type Msg, type Remote, DescriptionBodyChanged,
+  DescriptionDeleteRequested, DescriptionSubmitted, Failed, GenericFieldAdded,
+  GenericFieldRemoved, GenericKeyChanged, GenericValueChanged, Loaded, Loading,
+  NodeDeleteRequested, NodeEditCancelled, NodeEditStarted, NodeKindChanged,
+  NodeNameChanged, NodeSubmitted, field_key_options, kind_suggestions,
 }
 import client/ui
 import gleam/list
@@ -30,14 +29,14 @@ pub fn node_form_view(model: Model) -> Element(Msg) {
         attribute.value(model.node_form.name),
         event.on_input(NodeNameChanged),
       ]),
-      html.input([
-        attribute.attribute("data-test-id", "node-description-input"),
-        attribute.placeholder("Description"),
-        attribute.value(model.node_form.description),
-        event.on_input(NodeDescriptionChanged),
-      ]),
-      kind_select(model.node_form.kind),
-      kind_fields_view(model.node_form.kind, model.nodes),
+      ui.suggest_input(
+        "node-kind-input",
+        "Kind",
+        model.node_form.kind,
+        NodeKindChanged,
+        kind_suggestions(model.nodes),
+      ),
+      fields_view(model.node_form.fields, model.nodes),
       html.button(
         [
           attribute.class("btn-primary"),
@@ -51,6 +50,7 @@ pub fn node_form_view(model: Model) -> Element(Msg) {
           html.button([event.on_click(NodeEditCancelled)], [
             element.text("Cancel"),
           ]),
+          descriptions_view(model),
         ]
         False -> []
       }
@@ -58,85 +58,30 @@ pub fn node_form_view(model: Model) -> Element(Msg) {
   )
 }
 
-fn kind_select(kind: KindForm) -> Element(Msg) {
-  let current = kind_name(kind)
-  html.select(
-    [
-      attribute.attribute("data-test-id", "kind-select"),
-      event.on_change(KindSelected),
-    ],
-    list.map(["Person", "Place", "Event", "Generic"], fn(name) {
-      html.option(
-        [attribute.value(name), attribute.selected(name == current)],
-        name,
-      )
-    }),
-  )
-}
-
-fn kind_fields_view(
-  kind: KindForm,
+fn fields_view(
+  fields: List(#(String, String)),
   nodes: Remote(List(shared.Node)),
 ) -> Element(Msg) {
-  case kind {
-    PlaceForm -> html.div([], [])
-    PersonForm(year, month, day, gender) ->
-      html.div([attribute.class("subfields")], [
-        date_inputs(year, month, day),
-        ui.suggest_input(
-          "gender-input",
-          "Gender",
-          gender,
-          GenderChanged,
-          gender_options(nodes),
-        ),
-      ])
-    EventForm(year, month, day) -> date_inputs(year, month, day)
-    GenericForm(fields) ->
-      html.div(
-        [
-          attribute.class("subfields"),
-          attribute.attribute("data-test-id", "generic-fields"),
-        ],
-        list.append(
-          list.index_map(fields, fn(field, i) {
-            generic_row(field, i, field_key_options(nodes))
-          }),
+  html.div(
+    [
+      attribute.class("subfields"),
+      attribute.attribute("data-test-id", "generic-fields"),
+    ],
+    list.append(
+      list.index_map(fields, fn(field, i) {
+        generic_row(field, i, field_key_options(nodes))
+      }),
+      [
+        html.button(
           [
-            html.button(
-              [
-                attribute.attribute("data-test-id", "generic-add"),
-                event.on_click(GenericFieldAdded),
-              ],
-              [element.text("Add field")],
-            ),
+            attribute.attribute("data-test-id", "generic-add"),
+            event.on_click(GenericFieldAdded),
           ],
+          [element.text("Add field")],
         ),
-      )
-  }
-}
-
-fn date_inputs(year: String, month: String, day: String) -> Element(Msg) {
-  html.div([attribute.class("date-inputs")], [
-    html.input([
-      attribute.attribute("data-test-id", "year-input"),
-      attribute.placeholder("Year"),
-      attribute.value(year),
-      event.on_input(YearChanged),
-    ]),
-    html.input([
-      attribute.attribute("data-test-id", "month-input"),
-      attribute.placeholder("Month"),
-      attribute.value(month),
-      event.on_input(MonthChanged),
-    ]),
-    html.input([
-      attribute.attribute("data-test-id", "day-input"),
-      attribute.placeholder("Day"),
-      attribute.value(day),
-      event.on_input(DayChanged),
-    ]),
-  ])
+      ],
+    ),
+  )
 }
 
 fn generic_row(
@@ -170,6 +115,61 @@ fn generic_row(
   )
 }
 
+fn descriptions_view(model: Model) -> Element(Msg) {
+  let entries = case model.descriptions {
+    Loading -> [ui.status("Loading entries…")]
+    Failed -> [ui.status("Could not load entries")]
+    Loaded([]) -> [ui.status("No entries yet")]
+    Loaded(list) -> list.map(list, description_row)
+  }
+  html.div(
+    [
+      attribute.class("descriptions"),
+      attribute.attribute("data-test-id", "descriptions"),
+    ],
+    list.append(entries, [
+      html.textarea(
+        [
+          attribute.attribute("data-test-id", "description-input"),
+          attribute.placeholder("Add an entry (2–3 sentences)"),
+          attribute.value(model.description_form),
+          event.on_input(DescriptionBodyChanged),
+        ],
+        model.description_form,
+      ),
+      html.button(
+        [
+          attribute.class("btn-primary"),
+          attribute.attribute("data-test-id", "description-add"),
+          event.on_click(DescriptionSubmitted),
+        ],
+        [element.text("Add entry")],
+      ),
+    ]),
+  )
+}
+
+fn description_row(d: shared.Description) -> Element(Msg) {
+  html.div(
+    [
+      attribute.class("description"),
+      attribute.attribute("data-test-id", "description"),
+    ],
+    [
+      html.p([attribute.attribute("data-test-id", "description-body")], [
+        element.text(d.body),
+      ]),
+      html.button(
+        [
+          attribute.attribute("data-test-id", "description-delete"),
+          event.on_click(DescriptionDeleteRequested(d.id)),
+        ],
+        [element.text("Delete")],
+      ),
+    ],
+  )
+}
+
 pub fn nodes_view(nodes: Remote(List(shared.Node))) -> Element(Msg) {
   case nodes {
     Loading -> ui.status("Loading nodes…")
@@ -198,13 +198,18 @@ fn node_row(node: shared.Node) -> Element(Msg) {
           ],
           [element.text(node.name)],
         ),
-        html.span(
-          [
-            attribute.class("kind"),
-            attribute.attribute("data-test-id", "node-kind"),
-          ],
-          [element.text(kind_label(node.kind))],
-        ),
+        ..case node.kind {
+          "" -> []
+          kind -> [
+            html.span(
+              [
+                attribute.class("kind"),
+                attribute.attribute("data-test-id", "node-kind"),
+              ],
+              [element.text(kind)],
+            ),
+          ]
+        }
       ]),
       html.div([attribute.class("entry__actions")], [
         html.button([event.on_click(NodeEditStarted(node))], [

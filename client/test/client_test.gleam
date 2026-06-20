@@ -21,8 +21,10 @@ fn blank() -> model.Model {
     editing: None,
     selected: None,
     nodes: model.Loading,
-    node_form: model.NodeForm("", "", model.PlaceForm),
+    node_form: model.NodeForm("", "", []),
     editing_node: None,
+    descriptions: model.Loaded([]),
+    description_form: "",
     edges: model.Loading,
     edge_form: model.EdgeForm("", "", ""),
     graph: model.Loading,
@@ -35,8 +37,17 @@ fn universe(id: String, name: String) -> shared.Universe {
   shared.Universe(id, name, "")
 }
 
-fn node(id: String, name: String, kind: shared.NodeKind) -> shared.Node {
-  shared.Node(id, "u:1", kind, name, "")
+fn node(id: String, name: String, kind: String) -> shared.Node {
+  shared.Node(id, "u:1", name, kind, dict.new())
+}
+
+fn node_f(
+  id: String,
+  name: String,
+  kind: String,
+  fields: List(#(String, shared.FieldValue)),
+) -> shared.Node {
+  shared.Node(id, "u:1", name, kind, dict.from_list(fields))
 }
 
 fn edge(id: String, relationship: String) -> shared.Edge {
@@ -83,7 +94,7 @@ pub fn saved_clears_form_test() {
   assert m.form == model.Form("", "")
 }
 
-// ---- M2: node management ----
+// ---- node management ----
 
 pub fn selecting_universe_sets_selected_and_loads_test() {
   let #(m, _) =
@@ -99,88 +110,121 @@ pub fn deselect_clears_selected_test() {
 }
 
 pub fn nodes_loaded_sets_nodes_test() {
-  let n = node("node:1", "Shire", shared.Place)
+  let n = node("node:1", "Shire", "Place")
   let #(m, _) = client.update(blank(), model.NodesLoaded(Ok([n])))
   assert m.nodes == model.Loaded([n])
 }
 
-pub fn kind_selected_switches_form_test() {
-  let #(m, _) = client.update(blank(), model.KindSelected("Person"))
-  assert m.node_form.kind == model.PersonForm("", "", "", "")
-}
-
-pub fn date_changes_apply_to_person_test() {
-  let #(m, _) =
-    blank()
-    |> client.update(model.KindSelected("Person"))
-    |> fn(pair) { client.update(pair.0, model.YearChanged("2968")) }
-  assert m.node_form.kind == model.PersonForm("2968", "", "", "")
+pub fn kind_change_updates_form_test() {
+  let #(m, _) = client.update(blank(), model.NodeKindChanged("Person"))
+  assert m.node_form.kind == "Person"
 }
 
 pub fn generic_field_edit_test() {
   let #(m, _) =
     blank()
-    |> client.update(model.KindSelected("Generic"))
+    |> client.update(model.GenericFieldAdded)
     |> fn(p) { client.update(p.0, model.GenericKeyChanged(0, "faction")) }
   let #(m, _) = client.update(m, model.GenericValueChanged(0, "fellowship"))
-  assert m.node_form.kind == model.GenericForm([#("faction", "fellowship")])
+  assert m.node_form.fields == [#("faction", "fellowship")]
 }
 
 pub fn generic_add_and_remove_test() {
   let #(m, _) =
     blank()
-    |> client.update(model.KindSelected("Generic"))
+    |> client.update(model.GenericFieldAdded)
     |> fn(p) { client.update(p.0, model.GenericFieldAdded) }
-  assert m.node_form.kind == model.GenericForm([#("", ""), #("", "")])
+  assert m.node_form.fields == [#("", ""), #("", "")]
   let #(m, _) = client.update(m, model.GenericFieldRemoved(0))
-  assert m.node_form.kind == model.GenericForm([#("", "")])
+  assert m.node_form.fields == [#("", "")]
 }
 
 pub fn node_edit_started_fills_form_test() {
   let n =
-    node("node:1", "Frodo", shared.Person(shared.Date(2968, 9, 22), "male"))
+    node_f("node:1", "Frodo", "Person", [#("gender", shared.StringValue("male"))])
   let #(m, _) = client.update(blank(), model.NodeEditStarted(n))
   assert m.editing_node == Some("node:1")
   assert m.node_form.name == "Frodo"
-  assert m.node_form.kind == model.PersonForm("2968", "9", "22", "male")
+  assert m.node_form.kind == "Person"
+  assert m.node_form.fields == [#("gender", "male")]
+  assert m.descriptions == model.Loading
 }
 
-pub fn node_body_person_test() {
-  let form =
-    model.NodeForm(
-      "Frodo",
-      "Ring-bearer",
-      model.PersonForm("2968", "9", "22", "male"),
-    )
+pub fn node_body_test() {
+  let form = model.NodeForm("Frodo", "Person", [#("gender", "male")])
   let expected =
     json.object([
       #("name", json.string("Frodo")),
-      #("description", json.string("Ring-bearer")),
       #("kind", json.string("Person")),
-      #("dob", shared.date_to_json(shared.Date(2968, 9, 22))),
-      #("gender", json.string("male")),
+      #("fields", json.object([#("gender", json.string("male"))])),
     ])
   assert json.to_string(model.node_body(form)) == json.to_string(expected)
 }
 
-pub fn node_body_generic_drops_empty_keys_test() {
+pub fn node_body_drops_empty_keys_test() {
   let form =
-    model.NodeForm(
-      "Sting",
-      "",
-      model.GenericForm([#("glows", "true"), #("", "junk")]),
-    )
+    model.NodeForm("Sting", "Generic", [#("glows", "true"), #("", "junk")])
   let expected =
     json.object([
       #("name", json.string("Sting")),
-      #("description", json.string("")),
       #("kind", json.string("Generic")),
       #("fields", json.object([#("glows", json.string("true"))])),
     ])
   assert json.to_string(model.node_body(form)) == json.to_string(expected)
 }
 
-// ---- M3: edge management ----
+// ---- descriptions ----
+
+fn editing(node_id: String) -> model.Model {
+  model.Model(
+    ..blank(),
+    selected: Some(universe("u:1", "A")),
+    editing_node: Some(node_id),
+  )
+}
+
+pub fn descriptions_loaded_sets_descriptions_test() {
+  let d = shared.Description("description:1", "node:1", 0, "It is green.")
+  let #(m, _) =
+    client.update(blank(), model.DescriptionsLoaded(Ok([d])))
+  assert m.descriptions == model.Loaded([d])
+}
+
+pub fn description_body_change_updates_form_test() {
+  let #(m, _) = client.update(blank(), model.DescriptionBodyChanged("hello"))
+  assert m.description_form == "hello"
+}
+
+pub fn description_saved_clears_form_test() {
+  let m0 = model.Model(..editing("node:1"), description_form: "draft")
+  let d = shared.Description("description:1", "node:1", 0, "draft")
+  let #(m, _) = client.update(m0, model.DescriptionSaved(Ok(d)))
+  assert m.description_form == ""
+}
+
+pub fn empty_description_does_not_submit_test() {
+  let m0 = model.Model(..editing("node:1"), description_form: "")
+  let #(m, _) = client.update(m0, model.DescriptionSubmitted)
+  assert m == m0
+}
+
+pub fn editing_node_renders_descriptions_test() {
+  let n = node("node:1", "Shire", "Place")
+  let d = shared.Description("description:1", "node:1", 0, "It is green.")
+  let sim =
+    start()
+    |> simulate.message(model.UniverseSelected(universe("u:1", "Middle Earth")))
+    |> simulate.message(model.NodesLoaded(Ok([n])))
+    |> simulate.message(model.NodeEditStarted(n))
+    |> simulate.message(model.DescriptionsLoaded(Ok([d])))
+  assert query.has(simulate.view(sim), query.test_id("descriptions"))
+  assert query.has(
+    simulate.view(sim),
+    query.and(query.test_id("description-body"), query.text("It is green.")),
+  )
+}
+
+// ---- edge management ----
 
 pub fn selecting_universe_loads_edges_test() {
   let #(m, _) =
@@ -239,7 +283,7 @@ pub fn edge_selects_have_placeholder_option_test() {
     start()
     |> simulate.message(model.UniverseSelected(universe("u:1", "A")))
     |> simulate.message(
-      model.NodesLoaded(Ok([node("node:1", "Alice", shared.Place)])),
+      model.NodesLoaded(Ok([node("node:1", "Alice", "Place")])),
     )
   assert query.has(
     simulate.view(sim),
@@ -247,7 +291,7 @@ pub fn edge_selects_have_placeholder_option_test() {
   )
 }
 
-// ---- M4: filterable graph ----
+// ---- filterable graph ----
 
 pub fn selecting_universe_loads_graph_test() {
   let #(m, _) =
@@ -257,7 +301,7 @@ pub fn selecting_universe_loads_graph_test() {
 }
 
 pub fn graph_loaded_sets_graph_test() {
-  let g = shared.Graph([node("node:1", "Shire", shared.Place)], [])
+  let g = shared.Graph([node("node:1", "Shire", "Place")], [])
   let #(m, _) = client.update(blank(), model.GraphLoaded(Ok(g)))
   assert m.graph == model.Loaded(g)
 }
@@ -307,7 +351,7 @@ pub fn graph_query_only_includes_set_fields_test() {
     == "?from=Gandalf&relationship=befriends&to=Person&field=gender&value=male"
 }
 
-// ---- M5: timeline ----
+// ---- timeline ----
 
 pub fn selecting_universe_loads_timeline_test() {
   let #(m, _) =
@@ -316,7 +360,8 @@ pub fn selecting_universe_loads_timeline_test() {
 }
 
 pub fn timeline_loaded_sets_timeline_test() {
-  let ev = node("node:e1", "Fall", shared.Event(shared.Date(3019, 3, 25)))
+  let ev =
+    node_f("node:e1", "Fall", "Event", [#("when", shared.StringValue("3019"))])
   let g = shared.Graph([ev], [])
   let #(m, _) = client.update(blank(), model.TimelineLoaded(Ok(g)))
   assert m.timeline == model.Loaded(g)
@@ -324,8 +369,10 @@ pub fn timeline_loaded_sets_timeline_test() {
 
 pub fn selected_view_shows_timeline_test() {
   let ev =
-    node("node:e1", "Fall of Sauron", shared.Event(shared.Date(3019, 3, 25)))
-  let shire = node("node:p1", "Shire", shared.Place)
+    node_f("node:e1", "Fall of Sauron", "Event", [
+      #("when", shared.StringValue("3019-03-25")),
+    ])
+  let shire = node("node:p1", "Shire", "Place")
   let link =
     shared.Edge("relationship:1", "u:1", "happened_at", "node:e1", "node:p1")
   let g = shared.Graph([ev], [link])
@@ -341,7 +388,7 @@ pub fn selected_view_shows_timeline_test() {
   )
   assert query.has(
     simulate.view(sim),
-    query.and(query.test_id("timeline-when"), query.text("3019-3-25")),
+    query.and(query.test_id("timeline-when"), query.text("3019-03-25")),
   )
   assert query.has(
     simulate.view(sim),
@@ -398,7 +445,7 @@ pub fn typing_name_updates_model_test() {
 }
 
 pub fn selected_view_shows_node_form_and_list_test() {
-  let n = node("node:1", "Shire", shared.Place)
+  let n = node("node:1", "Shire", "Place")
   let sim =
     start()
     |> simulate.message(model.UniverseSelected(universe("u:1", "Middle Earth")))
@@ -411,7 +458,7 @@ pub fn selected_view_shows_node_form_and_list_test() {
 }
 
 pub fn selected_view_shows_graph_filter_and_container_test() {
-  let g = shared.Graph([node("node:1", "Shire", shared.Place)], [])
+  let g = shared.Graph([node("node:1", "Shire", "Place")], [])
   let sim =
     start()
     |> simulate.message(model.UniverseSelected(universe("u:1", "Middle Earth")))
@@ -431,16 +478,13 @@ fn linked(id: String, relationship: String, from: String, to: String) -> shared.
 }
 
 fn graph_model(filter: model.GraphFilter) -> model.Model {
-  let dob = shared.Date(1, 1, 1)
   let nodes = [
-    node("n:g", "Gandalf", shared.Person(dob, "male")),
-    node("n:f", "Frodo", shared.Person(dob, "male")),
-    node("n:s", "Shire", shared.Place),
-    node(
-      "n:t",
-      "Sting",
-      shared.Generic(dict.from_list([#("material", shared.StringValue("elvish"))])),
-    ),
+    node_f("n:g", "Gandalf", "Person", [#("gender", shared.StringValue("male"))]),
+    node_f("n:f", "Frodo", "Person", [#("gender", shared.StringValue("male"))]),
+    node("n:s", "Shire", "Place"),
+    node_f("n:t", "Sting", "Generic", [
+      #("material", shared.StringValue("elvish")),
+    ]),
   ]
   let edges = [
     linked("e:1", "befriends", "n:g", "n:f"),
@@ -473,7 +517,14 @@ pub fn relationship_options_are_limited_by_endpoints_test() {
 pub fn field_options_come_from_candidate_nodes_test() {
   let all = model.graph_field_options(graph_model(model.empty_graph_filter))
   assert all == ["gender", "material"]
-  let scoped = model.graph_field_options(graph_model(model.GraphFilter("", "visits", "", "", "")))
+  let scoped =
+    model.graph_field_options(graph_model(model.GraphFilter(
+      "",
+      "visits",
+      "",
+      "",
+      "",
+    )))
   assert scoped == ["gender"]
 }
 

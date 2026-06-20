@@ -1,5 +1,5 @@
 import client/model.{
-  type Msg, type Remote, Failed, Loaded, Loading, event_when, node_name,
+  type Msg, type Remote, Failed, Loaded, Loading, node_field, node_name,
 }
 import client/ui
 import gleam/list
@@ -48,7 +48,7 @@ fn timeline_event(
           attribute.class("event__when"),
           attribute.attribute("data-test-id", "timeline-when"),
         ],
-        [element.text(event_when(event.kind))],
+        [element.text(node_field(event, "when"))],
       ),
       html.span(
         [
