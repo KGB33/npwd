@@ -1,7 +1,7 @@
 import client/model.{
   type Model, type Msg, type Remote, EdgeDeleteRequested, EdgeFromSelected,
   EdgeRelationshipChanged, EdgeSubmitted, EdgeToSelected, Failed, Loaded,
-  Loading, node_name,
+  Loading, node_name, relationship_options,
 }
 import client/ui
 import gleam/list
@@ -15,12 +15,13 @@ pub fn edge_form_view(model: Model) -> Element(Msg) {
   html.div(
     [attribute.class("panel"), attribute.attribute("data-test-id", "edge-form")],
     [
-      html.input([
-        attribute.attribute("data-test-id", "edge-relationship-input"),
-        attribute.placeholder("Relationship"),
-        attribute.value(model.edge_form.relationship),
-        event.on_input(EdgeRelationshipChanged),
-      ]),
+      ui.suggest_input(
+        "edge-relationship-input",
+        "Relationship",
+        model.edge_form.relationship,
+        EdgeRelationshipChanged,
+        relationship_options(model.edges),
+      ),
       node_select(
         "edge-from-select",
         model.edge_form.from,

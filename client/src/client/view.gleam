@@ -30,6 +30,13 @@ pub fn view(model: Model) -> Element(Msg) {
             [element.text("← Back to the shelf")],
           ),
         ]),
+        chapter("The web", [
+          graph.graph_filter_view(model),
+          graph.graph_view(model.graph),
+        ]),
+        chapter("Chronicle", [
+          timeline.timeline_view(model.timeline, model.nodes),
+        ]),
         chapter("Catalogue", [
           nodes.node_form_view(model),
           nodes.nodes_view(model.nodes),
@@ -37,13 +44,6 @@ pub fn view(model: Model) -> Element(Msg) {
         chapter("Relations", [
           edges.edge_form_view(model),
           edges.edges_view(model.edges, model.nodes),
-        ]),
-        chapter("The web", [
-          graph.graph_filter_view(model.graph_filter),
-          graph.graph_view(model.graph),
-        ]),
-        chapter("Chronicle", [
-          timeline.timeline_view(model.timeline, model.nodes),
         ]),
       ])
   }

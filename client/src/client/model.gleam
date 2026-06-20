@@ -314,3 +314,59 @@ pub fn node_name(nodes: Remote(List(shared.Node)), id: String) -> String {
     _ -> id
   }
 }
+
+pub fn kind_options() -> List(String) {
+  ["Person", "Place", "Event", "Generic"]
+}
+
+pub fn relationship_options(edges: Remote(List(shared.Edge))) -> List(String) {
+  case edges {
+    Loaded(list) -> distinct(list.map(list, fn(e) { e.relationship }))
+    _ -> []
+  }
+}
+
+pub fn gender_options(nodes: Remote(List(shared.Node))) -> List(String) {
+  loaded_strings(nodes, fn(node) {
+    case node.kind {
+      shared.Person(_, gender) -> [gender]
+      _ -> []
+    }
+  })
+}
+
+pub fn field_key_options(nodes: Remote(List(shared.Node))) -> List(String) {
+  loaded_strings(nodes, fn(node) {
+    case node.kind {
+      shared.Generic(fields) -> dict.keys(fields)
+      _ -> []
+    }
+  })
+}
+
+pub fn field_value_options(nodes: Remote(List(shared.Node))) -> List(String) {
+  loaded_strings(nodes, fn(node) {
+    case node.kind {
+      shared.Generic(fields) ->
+        dict.values(fields) |> list.map(field_value_to_string)
+      _ -> []
+    }
+  })
+}
+
+fn loaded_strings(
+  nodes: Remote(List(shared.Node)),
+  pick: fn(shared.Node) -> List(String),
+) -> List(String) {
+  case nodes {
+    Loaded(list) -> distinct(list.flat_map(list, pick))
+    _ -> []
+  }
+}
+
+fn distinct(items: List(String)) -> List(String) {
+  items
+  |> list.filter(fn(s) { s != "" })
+  |> list.unique
+  |> list.sort(string.compare)
+}

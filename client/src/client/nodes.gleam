@@ -4,7 +4,7 @@ import client/model.{
   GenericKeyChanged, GenericValueChanged, KindSelected, Loaded, Loading,
   MonthChanged, NodeDeleteRequested, NodeDescriptionChanged, NodeEditCancelled,
   NodeEditStarted, NodeNameChanged, NodeSubmitted, PersonForm, PlaceForm,
-  YearChanged, kind_label, kind_name,
+  YearChanged, field_key_options, gender_options, kind_label, kind_name,
 }
 import client/ui
 import gleam/list
@@ -37,7 +37,7 @@ pub fn node_form_view(model: Model) -> Element(Msg) {
         event.on_input(NodeDescriptionChanged),
       ]),
       kind_select(model.node_form.kind),
-      kind_fields_view(model.node_form.kind),
+      kind_fields_view(model.node_form.kind, model.nodes),
       html.button(
         [
           attribute.class("btn-primary"),
@@ -74,18 +74,22 @@ fn kind_select(kind: KindForm) -> Element(Msg) {
   )
 }
 
-fn kind_fields_view(kind: KindForm) -> Element(Msg) {
+fn kind_fields_view(
+  kind: KindForm,
+  nodes: Remote(List(shared.Node)),
+) -> Element(Msg) {
   case kind {
     PlaceForm -> html.div([], [])
     PersonForm(year, month, day, gender) ->
       html.div([attribute.class("subfields")], [
         date_inputs(year, month, day),
-        html.input([
-          attribute.attribute("data-test-id", "gender-input"),
-          attribute.placeholder("Gender"),
-          attribute.value(gender),
-          event.on_input(GenderChanged),
-        ]),
+        ui.suggest_input(
+          "gender-input",
+          "Gender",
+          gender,
+          GenderChanged,
+          gender_options(nodes),
+        ),
       ])
     EventForm(year, month, day) -> date_inputs(year, month, day)
     GenericForm(fields) ->
@@ -94,15 +98,20 @@ fn kind_fields_view(kind: KindForm) -> Element(Msg) {
           attribute.class("subfields"),
           attribute.attribute("data-test-id", "generic-fields"),
         ],
-        list.append(list.index_map(fields, generic_row), [
-          html.button(
-            [
-              attribute.attribute("data-test-id", "generic-add"),
-              event.on_click(GenericFieldAdded),
-            ],
-            [element.text("Add field")],
-          ),
-        ]),
+        list.append(
+          list.index_map(fields, fn(field, i) {
+            generic_row(field, i, field_key_options(nodes))
+          }),
+          [
+            html.button(
+              [
+                attribute.attribute("data-test-id", "generic-add"),
+                event.on_click(GenericFieldAdded),
+              ],
+              [element.text("Add field")],
+            ),
+          ],
+        ),
       )
   }
 }
@@ -130,19 +139,24 @@ fn date_inputs(year: String, month: String, day: String) -> Element(Msg) {
   ])
 }
 
-fn generic_row(field: #(String, String), index: Int) -> Element(Msg) {
+fn generic_row(
+  field: #(String, String),
+  index: Int,
+  keys: List(String),
+) -> Element(Msg) {
   html.div(
     [
       attribute.class("generic-row"),
       attribute.attribute("data-test-id", "generic-row"),
     ],
     [
-      html.input([
-        attribute.attribute("data-test-id", "generic-key"),
-        attribute.placeholder("Key"),
-        attribute.value(field.0),
-        event.on_input(GenericKeyChanged(index, _)),
-      ]),
+      ui.suggest_input(
+        "generic-key",
+        "Key",
+        field.0,
+        GenericKeyChanged(index, _),
+        keys,
+      ),
       html.input([
         attribute.attribute("data-test-id", "generic-value"),
         attribute.placeholder("Value"),
