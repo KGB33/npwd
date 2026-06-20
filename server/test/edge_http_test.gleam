@@ -1,3 +1,4 @@
+import gleam/dict
 import gleam/dynamic/decode
 import gleam/http
 import gleam/json.{type Json}
@@ -14,7 +15,7 @@ fn universe(config: db.Config, name: String) -> String {
 }
 
 fn node(config: db.Config, u: String, name: String) -> String {
-  let assert Ok(n) = db.create_node(config, u, name, "", shared.Place)
+  let assert Ok(n) = db.create_node(config, u, name, "Place", dict.new())
   n.id
 }
 

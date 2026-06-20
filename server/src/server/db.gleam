@@ -1,4 +1,5 @@
 import gleam/bit_array
+import gleam/dict
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
 import gleam/erlang/application
@@ -265,14 +266,14 @@ pub fn create_node(
   config: Config,
   universe: String,
   name: String,
-  description: String,
-  kind: shared.NodeKind,
+  kind: String,
+  fields: dict.Dict(String, shared.FieldValue),
 ) -> Result(shared.Node, DbError) {
   use <- require_valid([universe])
   query_first(
     config,
     "CREATE node CONTENT $data",
-    [#("data", shared.node_content_to_json(universe, name, description, kind))],
+    [#("data", shared.node_content_to_json(universe, name, kind, fields))],
     shared.node_decoder(),
   )
 }
@@ -296,8 +297,8 @@ pub fn update_node(
   universe: String,
   id: String,
   name: String,
-  description: String,
-  kind: shared.NodeKind,
+  kind: String,
+  fields: dict.Dict(String, shared.FieldValue),
 ) -> Result(shared.Node, DbError) {
   use <- require_valid([id, universe])
   query_first(
@@ -306,7 +307,7 @@ pub fn update_node(
     [
       #("id", json.string(id)),
       #("u", json.string(universe)),
-      #("data", shared.node_content_to_json(universe, name, description, kind)),
+      #("data", shared.node_content_to_json(universe, name, kind, fields)),
     ],
     shared.node_decoder(),
   )
@@ -323,6 +324,71 @@ pub fn delete_node(
     "DELETE type::thing($id) WHERE universe = type::thing($u) RETURN BEFORE",
     [#("id", json.string(id)), #("u", json.string(universe))],
     shared.node_decoder(),
+  )
+}
+
+pub fn list_descriptions(
+  config: Config,
+  universe: String,
+  node: String,
+) -> Result(List(shared.Description), DbError) {
+  use <- require_valid([universe, node])
+  query_vars(
+    config,
+    "SELECT * FROM description WHERE node.universe = type::thing($u) AND node = type::thing($n) ORDER BY position",
+    [#("u", json.string(universe)), #("n", json.string(node))],
+    decode.list(shared.description_decoder()),
+  )
+}
+
+pub fn create_description(
+  config: Config,
+  universe: String,
+  node: String,
+  body: String,
+) -> Result(shared.Description, DbError) {
+  use <- require_valid([universe, node])
+  use _ <- result.try(get_node(config, universe, node))
+  query_first(
+    config,
+    "LET $rec = type::thing($n);
+     LET $p = count(SELECT id FROM description WHERE node = $rec);
+     CREATE description CONTENT { node: $rec, position: $p, body: $body } RETURN id, node, position, body;",
+    [#("n", json.string(node)), #("body", json.string(body))],
+    shared.description_decoder(),
+  )
+}
+
+pub fn update_description(
+  config: Config,
+  universe: String,
+  id: String,
+  body: String,
+) -> Result(shared.Description, DbError) {
+  use <- require_valid([universe, id])
+  query_first(
+    config,
+    "UPDATE type::thing($id) SET body = $body WHERE node.universe = type::thing($u) RETURN id, node, position, body",
+    [
+      #("id", json.string(id)),
+      #("u", json.string(universe)),
+      #("body", json.string(body)),
+    ],
+    shared.description_decoder(),
+  )
+}
+
+pub fn delete_description(
+  config: Config,
+  universe: String,
+  id: String,
+) -> Result(shared.Description, DbError) {
+  use <- require_valid([universe, id])
+  query_first(
+    config,
+    "DELETE type::thing($id) WHERE node.universe = type::thing($u) RETURN BEFORE",
+    [#("id", json.string(id)), #("u", json.string(universe))],
+    shared.description_decoder(),
   )
 }
 
@@ -435,7 +501,7 @@ pub fn timeline(
   use <- require_valid([universe])
   query_vars(
     config,
-    "LET $ns = SELECT * FROM node WHERE universe = type::thing($u) AND kind = \"Event\" ORDER BY when.year, when.month, when.day;
+    "LET $ns = SELECT * FROM node WHERE universe = type::thing($u) AND fields.when != NONE ORDER BY fields.when;
      LET $ids = $ns.id;
      LET $es = SELECT id, in AS from, out AS to, relationship, universe FROM relationship WHERE universe = type::thing($u) AND (in IN $ids OR out IN $ids) ORDER BY relationship;
      RETURN { nodes: $ns, edges: $es };",

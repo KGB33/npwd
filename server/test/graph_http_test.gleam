@@ -1,3 +1,4 @@
+import gleam/dict
 import gleam/http
 import gleam/json
 import gleam/list
@@ -13,13 +14,13 @@ fn universe(config: db.Config, name: String) -> String {
 }
 
 fn person(config: db.Config, u: String, name: String, gender: String) -> String {
-  let assert Ok(n) =
-    db.create_node(config, u, name, "", shared.Person(shared.Date(1, 1, 1), gender))
+  let fields = dict.from_list([#("gender", shared.StringValue(gender))])
+  let assert Ok(n) = db.create_node(config, u, name, "Person", fields)
   n.id
 }
 
 fn place(config: db.Config, u: String, name: String) -> String {
-  let assert Ok(n) = db.create_node(config, u, name, "", shared.Place)
+  let assert Ok(n) = db.create_node(config, u, name, "Place", dict.new())
   n.id
 }
 

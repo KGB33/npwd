@@ -1,3 +1,4 @@
+import gleam/dict
 import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Delete, Get, Post, Put}
 import gleam/json
@@ -31,14 +32,18 @@ pub fn handle(
 }
 
 type Input {
-  Input(name: String, description: String, kind: shared.NodeKind)
+  Input(name: String, kind: String, fields: dict.Dict(String, shared.FieldValue))
 }
 
 fn input_decoder() -> Decoder(Input) {
   use name <- decode.field("name", decode.string)
-  use description <- decode.field("description", decode.string)
-  use kind <- decode.then(shared.node_kind_decoder())
-  decode.success(Input(name:, description:, kind:))
+  use kind <- decode.field("kind", decode.string)
+  use fields <- decode.optional_field(
+    "fields",
+    dict.new(),
+    decode.dict(decode.string, shared.field_value_decoder()),
+  )
+  decode.success(Input(name:, kind:, fields:))
 }
 
 fn list(config: db.Config, universe: String) -> Response {
@@ -56,13 +61,7 @@ fn create(config: db.Config, req: Request, universe: String) -> Response {
   case decode.run(body, input_decoder()) {
     Ok(input) ->
       case
-        db.create_node(
-          config,
-          universe,
-          input.name,
-          input.description,
-          input.kind,
-        )
+        db.create_node(config, universe, input.name, input.kind, input.fields)
       {
         Ok(node) -> single(node, 201)
         Error(e) -> web.db_error(e)
@@ -85,8 +84,8 @@ fn update(
         universe,
         id,
         input.name,
-        input.description,
         input.kind,
+        input.fields,
       ))
     Error(_) -> wisp.bad_request("invalid node")
   }

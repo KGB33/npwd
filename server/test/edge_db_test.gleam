@@ -1,7 +1,7 @@
+import gleam/dict
 import gleam/list
 import helpers
 import server/db
-import shared
 
 fn universe(config: db.Config, name: String) -> String {
   let assert Ok(u) = db.create_universe(config, name, "")
@@ -9,7 +9,7 @@ fn universe(config: db.Config, name: String) -> String {
 }
 
 fn node(config: db.Config, u: String, name: String) -> String {
-  let assert Ok(n) = db.create_node(config, u, name, "", shared.Place)
+  let assert Ok(n) = db.create_node(config, u, name, "Place", dict.new())
   n.id
 }
 

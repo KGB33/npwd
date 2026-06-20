@@ -1,3 +1,4 @@
+import gleam/dict
 import gleam/http
 import gleam/json
 import gleam/list
@@ -12,13 +13,14 @@ fn universe(config: db.Config, name: String) -> String {
   u.id
 }
 
-fn event(config: db.Config, u: String, name: String, when: shared.Date) -> String {
-  let assert Ok(n) = db.create_node(config, u, name, "", shared.Event(when))
+fn event(config: db.Config, u: String, name: String, when: String) -> String {
+  let fields = dict.from_list([#("when", shared.StringValue(when))])
+  let assert Ok(n) = db.create_node(config, u, name, "Event", fields)
   n.id
 }
 
 fn place(config: db.Config, u: String, name: String) -> String {
-  let assert Ok(n) = db.create_node(config, u, name, "", shared.Place)
+  let assert Ok(n) = db.create_node(config, u, name, "Place", dict.new())
   n.id
 }
 
@@ -35,8 +37,8 @@ fn get(config: db.Config, path: String) -> shared.Graph {
 pub fn returns_ordered_events_with_edges_test() {
   let config = helpers.fresh_db()
   let u = universe(config, "Middle Earth")
-  let _ = event(config, u, "Late", shared.Date(3019, 3, 25))
-  let fall = event(config, u, "Early", shared.Date(1, 1, 1))
+  let _ = event(config, u, "Late", "3019-03-25")
+  let fall = event(config, u, "Early", "0001-01-01")
   let shire = place(config, u, "Shire")
   let assert Ok(_) = db.create_edge(config, u, "happened_at", fall, shire)
 
@@ -49,8 +51,8 @@ pub fn is_universe_scoped_test() {
   let config = helpers.fresh_db()
   let a = universe(config, "A")
   let b = universe(config, "B")
-  let _ = event(config, a, "a1", shared.Date(1, 1, 1))
-  let _ = event(config, b, "b1", shared.Date(1, 1, 1))
+  let _ = event(config, a, "a1", "0001-01-01")
+  let _ = event(config, b, "b1", "0001-01-01")
   let t = get(config, "/universes/" <> a <> "/timeline")
   assert list.map(t.nodes, fn(n) { n.name }) == ["a1"]
 }

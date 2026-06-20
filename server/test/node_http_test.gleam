@@ -1,3 +1,4 @@
+import gleam/dict
 import gleam/dynamic/decode
 import gleam/http
 import gleam/json.{type Json}
@@ -13,11 +14,11 @@ fn universe(config: db.Config, name: String) -> String {
   u.id
 }
 
-fn place_input(name: String, description: String) -> Json {
+fn node_input(name: String, kind: String, fields: List(#(String, Json))) -> Json {
   json.object([
-    #("kind", json.string("Place")),
     #("name", json.string(name)),
-    #("description", json.string(description)),
+    #("kind", json.string(kind)),
+    #("fields", json.object(fields)),
   ])
 }
 
@@ -36,7 +37,7 @@ pub fn create_returns_201_test() {
   let u = universe(config, "Middle Earth")
   let response =
     simulate.request(http.Post, "/universes/" <> u <> "/nodes")
-    |> simulate.json_body(place_input("Shire", "home"))
+    |> simulate.json_body(node_input("Shire", "Place", []))
     |> router.handle_request(config, _)
   assert response.status == 201
   let assert Ok(node) =
@@ -45,27 +46,29 @@ pub fn create_returns_201_test() {
   assert node.universe == u
 }
 
-pub fn create_person_test() {
+pub fn create_with_fields_test() {
   let config = helpers.fresh_db()
   let u = universe(config, "Middle Earth")
   let body =
-    json.object([
-      #("kind", json.string("Person")),
-      #("name", json.string("Frodo")),
-      #("description", json.string("Ring-bearer")),
-      #("dob", shared.date_to_json(shared.Date(2968, 9, 22))),
+    node_input("Frodo", "Person", [
       #("gender", json.string("male")),
+      #("dob", json.string("Third Age 2968")),
     ])
   let node = create(config, u, body)
-  assert node.kind == shared.Person(shared.Date(2968, 9, 22), "male")
+  assert node.kind == "Person"
+  assert node.fields
+    == dict.from_list([
+      #("gender", shared.StringValue("male")),
+      #("dob", shared.StringValue("Third Age 2968")),
+    ])
 }
 
 pub fn list_is_scoped_test() {
   let config = helpers.fresh_db()
   let a = universe(config, "A")
   let b = universe(config, "B")
-  let _ = create(config, a, place_input("Shire", ""))
-  let _ = create(config, b, place_input("Tatooine", ""))
+  let _ = create(config, a, node_input("Shire", "Place", []))
+  let _ = create(config, b, node_input("Tatooine", "Place", []))
   let response =
     simulate.request(http.Get, "/universes/" <> a <> "/nodes")
     |> router.handle_request(config, _)
@@ -78,7 +81,7 @@ pub fn list_is_scoped_test() {
 pub fn get_existing_test() {
   let config = helpers.fresh_db()
   let u = universe(config, "Earthsea")
-  let created = create(config, u, place_input("Roke", "island"))
+  let created = create(config, u, node_input("Roke", "Place", []))
   let response =
     simulate.request(http.Get, "/universes/" <> u <> "/nodes/" <> created.id)
     |> router.handle_request(config, _)
@@ -92,7 +95,7 @@ pub fn get_wrong_universe_is_404_test() {
   let config = helpers.fresh_db()
   let a = universe(config, "A")
   let b = universe(config, "B")
-  let created = create(config, a, place_input("Shire", ""))
+  let created = create(config, a, node_input("Shire", "Place", []))
   let response =
     simulate.request(http.Get, "/universes/" <> b <> "/nodes/" <> created.id)
     |> router.handle_request(config, _)
@@ -102,15 +105,9 @@ pub fn get_wrong_universe_is_404_test() {
 pub fn update_test() {
   let config = helpers.fresh_db()
   let u = universe(config, "Middle Earth")
-  let created = create(config, u, place_input("Aragorn", "ranger"))
+  let created = create(config, u, node_input("Aragorn", "Place", []))
   let body =
-    json.object([
-      #("kind", json.string("Person")),
-      #("name", json.string("Aragorn")),
-      #("description", json.string("king")),
-      #("dob", shared.date_to_json(shared.Date(2931, 3, 1))),
-      #("gender", json.string("male")),
-    ])
+    node_input("Aragorn", "Person", [#("gender", json.string("male"))])
   let response =
     simulate.request(http.Put, "/universes/" <> u <> "/nodes/" <> created.id)
     |> simulate.json_body(body)
@@ -118,14 +115,14 @@ pub fn update_test() {
   assert response.status == 200
   let assert Ok(node) =
     json.parse(simulate.read_body(response), shared.node_decoder())
-  assert node.description == "king"
-  assert node.kind == shared.Person(shared.Date(2931, 3, 1), "male")
+  assert node.kind == "Person"
+  assert node.fields == dict.from_list([#("gender", shared.StringValue("male"))])
 }
 
 pub fn delete_test() {
   let config = helpers.fresh_db()
   let u = universe(config, "Middle Earth")
-  let created = create(config, u, place_input("Boromir", ""))
+  let created = create(config, u, node_input("Boromir", "Place", []))
   let response =
     simulate.request(http.Delete, "/universes/" <> u <> "/nodes/" <> created.id)
     |> router.handle_request(config, _)
