@@ -1,6 +1,7 @@
 import gleam/http.{Get}
 import gleam/json
 import server/db
+import server/descriptions
 import server/edges
 import server/graph
 import server/nodes
@@ -18,6 +19,8 @@ pub fn handle_request(config: db.Config, req: Request) -> Response {
   case wisp.path_segments(req) {
     [] -> index(req)
     ["health"] -> health(req)
+    ["universes", uid, "nodes", nid, "descriptions", ..rest] ->
+      descriptions.handle(config, req, uid, nid, rest)
     ["universes", uid, "nodes", ..rest] -> nodes.handle(config, req, uid, rest)
     ["universes", uid, "edges", ..rest] -> edges.handle(config, req, uid, rest)
     ["universes", uid, "graph"] -> graph.handle(config, req, uid)
