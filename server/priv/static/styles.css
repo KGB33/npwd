@@ -412,6 +412,34 @@ button:hover {
   max-width: 100%;
 }
 
+/* the web, drawn in ink on vellum (geometry comes from graph_ffi.mjs) */
+.graph-svg {
+  display: block;
+  font-family: var(--body);
+}
+
+.graph-edge {
+  stroke: var(--rule);
+  stroke-width: 1;
+}
+
+.graph-edge-label {
+  fill: var(--sepia);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.graph-node {
+  fill: var(--madder);
+  stroke: var(--vellum);
+  stroke-width: 1.5;
+}
+
+.graph-node-label {
+  fill: var(--ink);
+  font-size: 12px;
+}
+
 /* ---- The chronicle (timeline) ---------------------------------------- */
 .chronicle {
   list-style: none;

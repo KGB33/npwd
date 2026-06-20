@@ -29,7 +29,10 @@ export function render(data) {
   const svg = document.createElementNS(svgns, "svg");
   svg.setAttribute("width", String(width));
   svg.setAttribute("height", String(height));
+  svg.setAttribute("class", "graph-svg");
 
+  // Colours and type live in styles.css (.graph-* classes); this only
+  // computes geometry and paints.
   for (const edge of edges) {
     const a = pos.get(edge.from);
     const b = pos.get(edge.to);
@@ -39,14 +42,13 @@ export function render(data) {
     line.setAttribute("y1", a.y);
     line.setAttribute("x2", b.x);
     line.setAttribute("y2", b.y);
-    line.setAttribute("stroke", "#888");
+    line.setAttribute("class", "graph-edge");
     svg.appendChild(line);
 
     const label = document.createElementNS(svgns, "text");
     label.setAttribute("x", (a.x + b.x) / 2);
     label.setAttribute("y", (a.y + b.y) / 2);
-    label.setAttribute("font-size", "11");
-    label.setAttribute("fill", "#555");
+    label.setAttribute("class", "graph-edge-label");
     label.textContent = edge.relationship;
     svg.appendChild(label);
   }
@@ -56,13 +58,13 @@ export function render(data) {
     dot.setAttribute("cx", x);
     dot.setAttribute("cy", y);
     dot.setAttribute("r", "8");
-    dot.setAttribute("fill", "#2b6cb0");
+    dot.setAttribute("class", "graph-node");
     svg.appendChild(dot);
 
     const label = document.createElementNS(svgns, "text");
     label.setAttribute("x", x + 12);
     label.setAttribute("y", y + 4);
-    label.setAttribute("font-size", "12");
+    label.setAttribute("class", "graph-node-label");
     label.textContent = name;
     svg.appendChild(label);
   }
