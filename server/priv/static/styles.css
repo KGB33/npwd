@@ -149,7 +149,11 @@ select:focus {
 
 select {
   cursor: pointer;
-  padding-right: 1.2rem;
+  padding-right: 1.4rem;
+  /* a small sepia caret, since appearance:none drops the native one */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%236f5b3e'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.25rem center;
 }
 
 button {
@@ -491,4 +495,31 @@ button:hover {
   content: "↳ ";
   color: var(--rule);
   font-style: normal;
+}
+
+/* ---- Narrow leaves ---------------------------------------------------- */
+@media (max-width: 34rem) {
+  body {
+    font-size: 1.05rem;
+  }
+
+  .codex {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* fold the actions onto their own line so rows never overflow */
+  .entry {
+    grid-template-columns: 1.9rem 1fr;
+  }
+
+  .entry__actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .event {
+    grid-template-columns: 4.5rem 1fr;
+  }
 }
