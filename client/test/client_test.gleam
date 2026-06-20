@@ -1,6 +1,7 @@
 import client
 import client/model
 import client/view
+import gleam/dict
 import gleam/json
 import gleam/option.{None, Some}
 import gleeunit
@@ -421,6 +422,70 @@ pub fn selected_view_shows_graph_filter_and_container_test() {
     simulate.view(sim),
     query.and(query.test_id("graph-summary"), query.text("1 nodes, 0 edges")),
   )
+}
+
+// ---- smart graph-filter autocomplete ----
+
+fn linked(id: String, relationship: String, from: String, to: String) -> shared.Edge {
+  shared.Edge(id, "u:1", relationship, from, to)
+}
+
+fn graph_model(filter: model.GraphFilter) -> model.Model {
+  let dob = shared.Date(1, 1, 1)
+  let nodes = [
+    node("n:g", "Gandalf", shared.Person(dob, "male")),
+    node("n:f", "Frodo", shared.Person(dob, "male")),
+    node("n:s", "Shire", shared.Place),
+    node(
+      "n:t",
+      "Sting",
+      shared.Generic(dict.from_list([#("material", shared.StringValue("elvish"))])),
+    ),
+  ]
+  let edges = [
+    linked("e:1", "befriends", "n:g", "n:f"),
+    linked("e:2", "visits", "n:g", "n:s"),
+    linked("e:3", "forged", "n:g", "n:t"),
+  ]
+  model.Model(
+    ..blank(),
+    nodes: model.Loaded(nodes),
+    edges: model.Loaded(edges),
+    graph_filter: filter,
+  )
+}
+
+pub fn from_options_offer_source_names_and_kinds_test() {
+  let opts = model.graph_from_options(graph_model(model.empty_graph_filter))
+  assert opts == ["Gandalf", "Person"]
+}
+
+pub fn to_options_are_limited_by_relationship_test() {
+  let m = graph_model(model.GraphFilter("", "visits", "", "", ""))
+  assert model.graph_to_options(m) == ["Place", "Shire"]
+}
+
+pub fn relationship_options_are_limited_by_endpoints_test() {
+  let m = graph_model(model.GraphFilter("", "", "Frodo", "", ""))
+  assert model.graph_relationship_options(m) == ["befriends"]
+}
+
+pub fn field_options_come_from_candidate_nodes_test() {
+  let all = model.graph_field_options(graph_model(model.empty_graph_filter))
+  assert all == ["gender", "material"]
+  let scoped = model.graph_field_options(graph_model(model.GraphFilter("", "visits", "", "", "")))
+  assert scoped == ["gender"]
+}
+
+pub fn value_options_follow_selected_field_test() {
+  assert model.graph_value_options(graph_model(model.empty_graph_filter)) == []
+  let m = graph_model(model.GraphFilter("", "", "", "material", ""))
+  assert model.graph_value_options(m) == ["elvish"]
+}
+
+pub fn from_options_are_limited_by_destination_test() {
+  let m = graph_model(model.GraphFilter("", "", "Person", "", ""))
+  assert model.graph_from_options(m) == ["Gandalf", "Person"]
 }
 
 pub fn selected_view_shows_edge_form_and_list_test() {

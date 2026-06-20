@@ -4,6 +4,7 @@ import gleam/int
 import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{type Option}
+import gleam/result
 import gleam/string
 import rsvp
 import shared
@@ -336,12 +337,125 @@ pub fn relationship_options(edges: Remote(List(shared.Edge))) -> List(String) {
   }
 }
 
-pub fn endpoint_options(nodes: Remote(List(shared.Node))) -> List(String) {
-  let names = case nodes {
-    Loaded(list) -> list.map(list, fn(n) { n.name })
+type Row {
+  Row(edge: shared.Edge, from: shared.Node, to: shared.Node)
+}
+
+fn graph_rows(model: Model) -> List(Row) {
+  case model.nodes, model.edges {
+    Loaded(ns), Loaded(es) -> {
+      let lookup = dict.from_list(list.map(ns, fn(n) { #(n.id, n) }))
+      list.filter_map(es, fn(e) {
+        case dict.get(lookup, e.from), dict.get(lookup, e.to) {
+          Ok(f), Ok(t) -> Ok(Row(e, f, t))
+          _, _ -> Error(Nil)
+        }
+      })
+    }
+    _, _ -> []
+  }
+}
+
+fn endpoint_matches(node: shared.Node, spec: String) -> Bool {
+  spec == "" || node.name == spec || kind_label(node.kind) == spec
+}
+
+fn field_matches(node: shared.Node, field: String, value: String) -> Bool {
+  node_field_value(node, field) == option.Some(value)
+}
+
+fn node_field_value(node: shared.Node, field: String) -> Option(String) {
+  case node.kind {
+    shared.Person(_, gender) if field == "gender" -> option.Some(gender)
+    shared.Generic(fields) ->
+      dict.get(fields, field)
+      |> result.map(field_value_to_string)
+      |> option.from_result
+    _ -> option.None
+  }
+}
+
+fn node_field_keys(node: shared.Node) -> List(String) {
+  case node.kind {
+    shared.Person(..) -> ["gender"]
+    shared.Generic(fields) -> dict.keys(fields)
     _ -> []
   }
-  distinct(list.append(kind_options(), names))
+}
+
+fn row_matches(
+  row: Row,
+  from: String,
+  rel: String,
+  to: String,
+  field: String,
+  value: String,
+) -> Bool {
+  endpoint_matches(row.from, from)
+  && { rel == "" || row.edge.relationship == rel }
+  && endpoint_matches(row.to, to)
+  && case field == "" || value == "" {
+    True -> True
+    False ->
+      field_matches(row.from, field, value) || field_matches(row.to, field, value)
+  }
+}
+
+fn candidate_nodes(model: Model) -> List(shared.Node) {
+  let f = model.graph_filter
+  case f.from != "" || f.relationship != "" || f.to != "" {
+    True ->
+      graph_rows(model)
+      |> list.filter(fn(r) {
+        endpoint_matches(r.from, f.from)
+        && { f.relationship == "" || r.edge.relationship == f.relationship }
+        && endpoint_matches(r.to, f.to)
+      })
+      |> list.flat_map(fn(r) { [r.from, r.to] })
+    False ->
+      case model.nodes {
+        Loaded(ns) -> ns
+        _ -> []
+      }
+  }
+}
+
+pub fn graph_from_options(model: Model) -> List(String) {
+  let f = model.graph_filter
+  graph_rows(model)
+  |> list.filter(fn(r) { row_matches(r, "", f.relationship, f.to, f.field, f.value) })
+  |> list.flat_map(fn(r) { [r.from.name, kind_label(r.from.kind)] })
+  |> distinct
+}
+
+pub fn graph_to_options(model: Model) -> List(String) {
+  let f = model.graph_filter
+  graph_rows(model)
+  |> list.filter(fn(r) { row_matches(r, f.from, f.relationship, "", f.field, f.value) })
+  |> list.flat_map(fn(r) { [r.to.name, kind_label(r.to.kind)] })
+  |> distinct
+}
+
+pub fn graph_relationship_options(model: Model) -> List(String) {
+  let f = model.graph_filter
+  graph_rows(model)
+  |> list.filter(fn(r) { row_matches(r, f.from, "", f.to, f.field, f.value) })
+  |> list.map(fn(r) { r.edge.relationship })
+  |> distinct
+}
+
+pub fn graph_field_options(model: Model) -> List(String) {
+  candidate_nodes(model) |> list.flat_map(node_field_keys) |> distinct
+}
+
+pub fn graph_value_options(model: Model) -> List(String) {
+  case model.graph_filter.field {
+    "" -> []
+    field ->
+      candidate_nodes(model)
+      |> list.filter_map(fn(n) { option.to_result(node_field_value(n, field), Nil) })
+      |> distinct
+  }
 }
 
 pub fn gender_options(nodes: Remote(List(shared.Node))) -> List(String) {

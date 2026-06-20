@@ -2,7 +2,8 @@ import client/model.{
   type Model, type Msg, type Remote, Failed, GraphFieldChanged,
   GraphFilterApplied, GraphFilterCleared, GraphFromChanged,
   GraphRelationshipChanged, GraphToChanged, GraphValueChanged, Loaded, Loading,
-  endpoint_options, field_key_options, field_value_options, relationship_options,
+  graph_field_options, graph_from_options, graph_relationship_options,
+  graph_to_options, graph_value_options,
 }
 import client/ui
 import gleam/int
@@ -15,7 +16,6 @@ import shared
 
 pub fn graph_filter_view(model: Model) -> Element(Msg) {
   let filter = model.graph_filter
-  let endpoints = endpoint_options(model.nodes)
   html.div(
     [
       attribute.class("panel"),
@@ -28,21 +28,21 @@ pub fn graph_filter_view(model: Model) -> Element(Msg) {
           "From (kind or name)",
           filter.from,
           GraphFromChanged,
-          endpoints,
+          graph_from_options(model),
         ),
         ui.suggest_input(
           "graph-relationship-input",
           "Relationship",
           filter.relationship,
           GraphRelationshipChanged,
-          relationship_options(model.edges),
+          graph_relationship_options(model),
         ),
         ui.suggest_input(
           "graph-to-input",
           "To (kind or name)",
           filter.to,
           GraphToChanged,
-          endpoints,
+          graph_to_options(model),
         ),
       ]),
       html.div([attribute.class("filter-line")], [
@@ -51,14 +51,14 @@ pub fn graph_filter_view(model: Model) -> Element(Msg) {
           "Field",
           filter.field,
           GraphFieldChanged,
-          field_key_options(model.nodes),
+          graph_field_options(model),
         ),
         ui.suggest_input(
           "graph-value-input",
           "Value",
           filter.value,
           GraphValueChanged,
-          field_value_options(model.nodes),
+          graph_value_options(model),
         ),
       ]),
       html.div([attribute.class("filter-actions")], [

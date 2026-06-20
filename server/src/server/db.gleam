@@ -409,10 +409,10 @@ pub fn subgraph(
   use <- require_valid([universe])
   query_vars(
     config,
-    "LET $matchns = SELECT * FROM node WHERE universe = type::thing($u) AND ($field = NULL OR $this[$field] = $value) ORDER BY name;
+    "LET $pattern = $src != NULL OR $dst != NULL OR $rel != NULL;
+     LET $matchns = SELECT * FROM node WHERE universe = type::thing($u) AND ($field = NULL OR $this[$field] = $value OR $this.fields[$field] = $value) ORDER BY name;
      LET $matchids = $matchns.id;
-     LET $es = SELECT id, in AS from, out AS to, relationship, universe FROM relationship WHERE universe = type::thing($u) AND ($rel = NULL OR relationship = $rel) AND in IN $matchids AND out IN $matchids AND ($src = NULL OR in.kind = $src OR in.name = $src) AND ($dst = NULL OR out.kind = $dst OR out.name = $dst) ORDER BY relationship;
-     LET $pattern = $src != NULL OR $dst != NULL OR $rel != NULL;
+     LET $es = SELECT id, in AS from, out AS to, relationship, universe FROM relationship WHERE universe = type::thing($u) AND ($rel = NULL OR relationship = $rel) AND ($src = NULL OR in.kind = $src OR in.name = $src) AND ($dst = NULL OR out.kind = $dst OR out.name = $dst) AND ($field = NULL OR (in IN $matchids AND out IN $matchids) OR ($pattern AND (in IN $matchids OR out IN $matchids))) ORDER BY relationship;
      LET $eids = array::distinct(array::concat($es.from, $es.to));
      LET $ns = IF $pattern THEN (SELECT * FROM node WHERE id IN $eids ORDER BY name) ELSE $matchns END;
      RETURN { nodes: $ns, edges: $es };",

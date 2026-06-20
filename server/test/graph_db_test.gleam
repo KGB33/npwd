@@ -1,3 +1,4 @@
+import gleam/dict
 import gleam/list
 import gleam/option.{None, Some}
 import helpers
@@ -95,6 +96,54 @@ pub fn filters_by_named_endpoint_to_kind_test() {
     db.subgraph(config, u, Some("Gandalf"), Some("befriends"), Some("Person"), None, None)
   assert names(g.nodes) == ["Frodo", "Gandalf"]
   assert rels(g.edges) == ["befriends"]
+}
+
+pub fn path_and_field_intersect_test() {
+  let config = helpers.fresh_db()
+  let u = universe(config, "Middle Earth")
+  let frodo = person(config, u, "Frodo", "male")
+  let eowyn = person(config, u, "Eowyn", "female")
+  let shire = place(config, u, "Shire")
+  let assert Ok(_) = db.create_edge(config, u, "lives_in", frodo, shire)
+  let assert Ok(_) = db.create_edge(config, u, "lives_in", eowyn, shire)
+
+  let assert Ok(g) =
+    db.subgraph(
+      config,
+      u,
+      Some("Person"),
+      None,
+      Some("Place"),
+      Some("gender"),
+      Some("female"),
+    )
+  assert names(g.nodes) == ["Eowyn", "Shire"]
+  assert rels(g.edges) == ["lives_in"]
+}
+
+pub fn filters_by_generic_field_test() {
+  let config = helpers.fresh_db()
+  let u = universe(config, "Middle Earth")
+  let assert Ok(_) =
+    db.create_node(
+      config,
+      u,
+      "Sting",
+      "",
+      shared.Generic(dict.from_list([#("material", shared.StringValue("elvish"))])),
+    )
+  let assert Ok(_) =
+    db.create_node(
+      config,
+      u,
+      "Glamdring",
+      "",
+      shared.Generic(dict.from_list([#("material", shared.StringValue("steel"))])),
+    )
+
+  let assert Ok(g) =
+    db.subgraph(config, u, None, None, None, Some("material"), Some("elvish"))
+  assert names(g.nodes) == ["Sting"]
 }
 
 pub fn filters_by_arbitrary_field_test() {
