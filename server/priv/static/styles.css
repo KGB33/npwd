@@ -408,6 +408,102 @@ button:hover {
   color: var(--sepia);
 }
 
+/* ---- Annotations: a node's ordered entries, set apart in the panel ---- */
+.descriptions {
+  flex: 1 1 100%;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--rule);
+}
+
+.descriptions__head {
+  margin: 0 0 0.5rem;
+  font-variant: small-caps;
+  letter-spacing: 0.16em;
+  font-size: 0.8rem;
+  color: var(--sepia);
+}
+
+.descriptions__list {
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  counter-reset: note;
+  border-top: 1px solid var(--rule);
+}
+
+.description {
+  counter-increment: note;
+  display: grid;
+  grid-template-columns: 1.8rem 1fr auto;
+  align-items: baseline;
+  gap: 0.2rem 0.85rem;
+  padding: 0.55rem 0.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.description::before {
+  content: counter(note);
+  text-align: right;
+  font-variant: small-caps;
+  font-size: 0.8em;
+  letter-spacing: 0.04em;
+  color: var(--rule);
+}
+
+.description-body {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.description-delete {
+  align-self: start;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.5rem;
+  background: transparent;
+  border-color: transparent;
+  color: var(--sepia);
+}
+
+.description-delete:hover {
+  border-color: var(--rule);
+  color: var(--madder);
+}
+
+/* the composer: a ruled note slip + its action */
+.descriptions__compose {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+textarea {
+  font-family: var(--body);
+  font-size: 1rem;
+  color: var(--ink);
+  width: 100%;
+  min-height: 4rem;
+  resize: vertical;
+  appearance: none;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: rgba(231, 217, 185, 0.55);
+  padding: 0.5rem 0.65rem;
+  line-height: 1.5;
+}
+
+textarea::placeholder {
+  color: var(--sepia);
+  opacity: 0.7;
+  font-style: italic;
+}
+
+textarea:focus {
+  outline: 0;
+  border-color: var(--madder);
+}
+
 /* ---- Status / empty states ------------------------------------------- */
 .status {
   color: var(--sepia);

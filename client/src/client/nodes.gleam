@@ -116,51 +116,70 @@ fn generic_row(
 }
 
 fn descriptions_view(model: Model) -> Element(Msg) {
-  let entries = case model.descriptions {
-    Loading -> [ui.status("Loading entries…")]
-    Failed -> [ui.status("Could not load entries")]
-    Loaded([]) -> [ui.status("No entries yet")]
-    Loaded(list) -> list.map(list, description_row)
-  }
   html.div(
     [
       attribute.class("descriptions"),
       attribute.attribute("data-test-id", "descriptions"),
     ],
-    list.append(entries, [
-      html.textarea(
-        [
-          attribute.attribute("data-test-id", "description-input"),
-          attribute.placeholder("Add an entry (2–3 sentences)"),
-          attribute.value(model.description_form),
-          event.on_input(DescriptionBodyChanged),
-        ],
-        model.description_form,
-      ),
-      html.button(
-        [
-          attribute.class("btn-primary"),
-          attribute.attribute("data-test-id", "description-add"),
-          event.on_click(DescriptionSubmitted),
-        ],
-        [element.text("Add entry")],
-      ),
-    ]),
+    [
+      html.p([attribute.class("descriptions__head")], [
+        element.text("Annotations"),
+      ]),
+      descriptions_list(model.descriptions),
+      html.div([attribute.class("descriptions__compose")], [
+        html.textarea(
+          [
+            attribute.class("descriptions__field"),
+            attribute.attribute("data-test-id", "description-input"),
+            attribute.placeholder("Note an entry — two or three sentences"),
+            attribute.value(model.description_form),
+            event.on_input(DescriptionBodyChanged),
+          ],
+          model.description_form,
+        ),
+        html.button(
+          [
+            attribute.class("btn-primary"),
+            attribute.attribute("data-test-id", "description-add"),
+            event.on_click(DescriptionSubmitted),
+          ],
+          [element.text("Add entry")],
+        ),
+      ]),
+    ],
   )
 }
 
+fn descriptions_list(descriptions: Remote(List(shared.Description))) -> Element(Msg) {
+  case descriptions {
+    Loading -> ui.status("Loading entries…")
+    Failed -> ui.status("Could not load entries")
+    Loaded([]) -> ui.status("No entries yet")
+    Loaded(list) ->
+      html.ol(
+        [attribute.class("descriptions__list")],
+        list.map(list, description_row),
+      )
+  }
+}
+
 fn description_row(d: shared.Description) -> Element(Msg) {
-  html.div(
+  html.li(
     [
       attribute.class("description"),
       attribute.attribute("data-test-id", "description"),
     ],
     [
-      html.p([attribute.attribute("data-test-id", "description-body")], [
-        element.text(d.body),
-      ]),
+      html.p(
+        [
+          attribute.class("description-body"),
+          attribute.attribute("data-test-id", "description-body"),
+        ],
+        [element.text(d.body)],
+      ),
       html.button(
         [
+          attribute.class("description-delete"),
           attribute.attribute("data-test-id", "description-delete"),
           event.on_click(DescriptionDeleteRequested(d.id)),
         ],
