@@ -12,24 +12,41 @@ import lustre/event
 import shared
 
 pub fn graph_filter_view(filter: GraphFilter) -> Element(Msg) {
-  html.div([attribute.attribute("data-test-id", "graph-filter")], [
-    filter_input("graph-kind-input", "Kind", filter.kind, GraphKindChanged),
-    filter_input(
-      "graph-relationship-input",
-      "Relationship",
-      filter.relationship,
-      GraphRelationshipChanged,
-    ),
-    filter_input("graph-field-input", "Field", filter.field, GraphFieldChanged),
-    filter_input("graph-value-input", "Value", filter.value, GraphValueChanged),
-    html.button(
-      [
-        attribute.attribute("data-test-id", "graph-apply"),
-        event.on_click(GraphFilterApplied),
-      ],
-      [element.text("Apply")],
-    ),
-  ])
+  html.div(
+    [
+      attribute.class("panel"),
+      attribute.attribute("data-test-id", "graph-filter"),
+    ],
+    [
+      filter_input("graph-kind-input", "Kind", filter.kind, GraphKindChanged),
+      filter_input(
+        "graph-relationship-input",
+        "Relationship",
+        filter.relationship,
+        GraphRelationshipChanged,
+      ),
+      filter_input(
+        "graph-field-input",
+        "Field",
+        filter.field,
+        GraphFieldChanged,
+      ),
+      filter_input(
+        "graph-value-input",
+        "Value",
+        filter.value,
+        GraphValueChanged,
+      ),
+      html.button(
+        [
+          attribute.class("btn-primary"),
+          attribute.attribute("data-test-id", "graph-apply"),
+          event.on_click(GraphFilterApplied),
+        ],
+        [element.text("Apply")],
+      ),
+    ],
+  )
 }
 
 fn filter_input(
@@ -57,11 +74,16 @@ pub fn graph_view(graph: Remote(shared.Graph)) -> Element(Msg) {
       <> " edges"
   }
   html.div([], [
-    html.p([attribute.attribute("data-test-id", "graph-summary")], [
-      element.text(summary),
-    ]),
+    html.p(
+      [
+        attribute.class("graph__summary"),
+        attribute.attribute("data-test-id", "graph-summary"),
+      ],
+      [element.text(summary)],
+    ),
     html.div(
       [
+        attribute.class("graph__canvas"),
         attribute.attribute("data-test-id", "graph"),
         attribute.id("graph-canvas"),
       ],

@@ -270,7 +270,8 @@ pub fn graph_filter_changes_apply_test() {
     m
     |> client.update(model.GraphFieldChanged("gender"))
     |> fn(p) { client.update(p.0, model.GraphValueChanged("female")) }
-  assert m.graph_filter == model.GraphFilter("Person", "knows", "gender", "female")
+  assert m.graph_filter
+    == model.GraphFilter("Person", "knows", "gender", "female")
 }
 
 pub fn graph_filter_applied_reloads_test() {
@@ -294,8 +295,7 @@ pub fn selecting_universe_loads_timeline_test() {
 }
 
 pub fn timeline_loaded_sets_timeline_test() {
-  let ev =
-    node("node:e1", "Fall", shared.Event(shared.Date(3019, 3, 25)))
+  let ev = node("node:e1", "Fall", shared.Event(shared.Date(3019, 3, 25)))
   let g = shared.Graph([ev], [])
   let #(m, _) = client.update(blank(), model.TimelineLoaded(Ok(g)))
   assert m.timeline == model.Loaded(g)
@@ -380,9 +380,7 @@ pub fn selected_view_shows_node_form_and_list_test() {
   let n = node("node:1", "Shire", shared.Place)
   let sim =
     start()
-    |> simulate.message(
-      model.UniverseSelected(universe("u:1", "Middle Earth")),
-    )
+    |> simulate.message(model.UniverseSelected(universe("u:1", "Middle Earth")))
     |> simulate.message(model.NodesLoaded(Ok([n])))
   assert query.has(simulate.view(sim), query.test_id("node-form"))
   assert query.has(
@@ -395,9 +393,7 @@ pub fn selected_view_shows_graph_filter_and_container_test() {
   let g = shared.Graph([node("node:1", "Shire", shared.Place)], [])
   let sim =
     start()
-    |> simulate.message(
-      model.UniverseSelected(universe("u:1", "Middle Earth")),
-    )
+    |> simulate.message(model.UniverseSelected(universe("u:1", "Middle Earth")))
     |> simulate.message(model.GraphLoaded(Ok(g)))
   assert query.has(simulate.view(sim), query.test_id("graph-filter"))
   assert query.has(simulate.view(sim), query.test_id("graph"))
@@ -411,9 +407,7 @@ pub fn selected_view_shows_edge_form_and_list_test() {
   let e = edge("relationship:1", "was_at")
   let sim =
     start()
-    |> simulate.message(
-      model.UniverseSelected(universe("u:1", "Middle Earth")),
-    )
+    |> simulate.message(model.UniverseSelected(universe("u:1", "Middle Earth")))
     |> simulate.message(model.EdgesLoaded(Ok([e])))
   assert query.has(simulate.view(sim), query.test_id("edge-form"))
   assert query.has(

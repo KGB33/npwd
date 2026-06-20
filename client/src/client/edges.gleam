@@ -1,7 +1,7 @@
 import client/model.{
   type Model, type Msg, type Remote, EdgeDeleteRequested, EdgeFromSelected,
-  EdgeRelationshipChanged, EdgeSubmitted, EdgeToSelected, Failed, Loaded, Loading,
-  node_name,
+  EdgeRelationshipChanged, EdgeSubmitted, EdgeToSelected, Failed, Loaded,
+  Loading, node_name,
 }
 import client/ui
 import gleam/list
@@ -12,28 +12,37 @@ import lustre/event
 import shared
 
 pub fn edge_form_view(model: Model) -> Element(Msg) {
-  html.div([attribute.attribute("data-test-id", "edge-form")], [
-    html.input([
-      attribute.attribute("data-test-id", "edge-relationship-input"),
-      attribute.placeholder("Relationship"),
-      attribute.value(model.edge_form.relationship),
-      event.on_input(EdgeRelationshipChanged),
-    ]),
-    node_select(
-      "edge-from-select",
-      model.edge_form.from,
-      model.nodes,
-      EdgeFromSelected,
-    ),
-    node_select("edge-to-select", model.edge_form.to, model.nodes, EdgeToSelected),
-    html.button(
-      [
-        attribute.attribute("data-test-id", "edge-submit"),
-        event.on_click(EdgeSubmitted),
-      ],
-      [element.text("Add edge")],
-    ),
-  ])
+  html.div(
+    [attribute.class("panel"), attribute.attribute("data-test-id", "edge-form")],
+    [
+      html.input([
+        attribute.attribute("data-test-id", "edge-relationship-input"),
+        attribute.placeholder("Relationship"),
+        attribute.value(model.edge_form.relationship),
+        event.on_input(EdgeRelationshipChanged),
+      ]),
+      node_select(
+        "edge-from-select",
+        model.edge_form.from,
+        model.nodes,
+        EdgeFromSelected,
+      ),
+      node_select(
+        "edge-to-select",
+        model.edge_form.to,
+        model.nodes,
+        EdgeToSelected,
+      ),
+      html.button(
+        [
+          attribute.class("btn-primary"),
+          attribute.attribute("data-test-id", "edge-submit"),
+          event.on_click(EdgeSubmitted),
+        ],
+        [element.text("Add edge")],
+      ),
+    ],
+  )
 }
 
 fn node_select(
@@ -73,25 +82,42 @@ pub fn edges_view(
     Loaded([]) -> ui.status("No edges yet")
     Loaded(list) ->
       html.ul(
-        [attribute.attribute("data-test-id", "edge-list")],
+        [
+          attribute.class("registry"),
+          attribute.attribute("data-test-id", "edge-list"),
+        ],
         list.map(list, fn(e) { edge_row(e, nodes) }),
       )
   }
 }
 
-fn edge_row(edge: shared.Edge, nodes: Remote(List(shared.Node))) -> Element(Msg) {
-  html.li([attribute.attribute("data-test-id", "edge")], [
-    html.span([attribute.attribute("data-test-id", "edge-from")], [
-      element.text(node_name(nodes, edge.from)),
-    ]),
-    html.span([attribute.attribute("data-test-id", "edge-relationship")], [
-      element.text(edge.relationship),
-    ]),
-    html.span([attribute.attribute("data-test-id", "edge-to")], [
-      element.text(node_name(nodes, edge.to)),
-    ]),
-    html.button([event.on_click(EdgeDeleteRequested(edge.id))], [
-      element.text("Delete"),
-    ]),
-  ])
+fn edge_row(
+  edge: shared.Edge,
+  nodes: Remote(List(shared.Node)),
+) -> Element(Msg) {
+  html.li(
+    [attribute.class("entry"), attribute.attribute("data-test-id", "edge")],
+    [
+      html.div([attribute.class("entry__body")], [
+        html.span([attribute.attribute("data-test-id", "edge-from")], [
+          element.text(node_name(nodes, edge.from)),
+        ]),
+        html.span(
+          [
+            attribute.class("relation"),
+            attribute.attribute("data-test-id", "edge-relationship"),
+          ],
+          [element.text(edge.relationship)],
+        ),
+        html.span([attribute.attribute("data-test-id", "edge-to")], [
+          element.text(node_name(nodes, edge.to)),
+        ]),
+      ]),
+      html.div([attribute.class("entry__actions")], [
+        html.button([event.on_click(EdgeDeleteRequested(edge.id))], [
+          element.text("Delete"),
+        ]),
+      ]),
+    ],
+  )
 }

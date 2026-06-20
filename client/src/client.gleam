@@ -1,14 +1,13 @@
 import client/model.{
   type GraphFilter, type Model, type Msg, DayChanged, DeleteRequested,
   DeleteResolved, DescriptionChanged, EdgeDeleteRequested, EdgeDeleteResolved,
-  EdgeForm, EdgeFromSelected,
-  EdgeRelationshipChanged, EdgeSaved, EdgeSubmitted, EdgeToSelected, EdgesLoaded,
-  EditCancelled, EditStarted, Failed, Form, GenderChanged,
-  GenericFieldAdded, GenericFieldRemoved, GenericForm, GenericKeyChanged,
-  GenericValueChanged, GraphFieldChanged, GraphFilter, GraphFilterApplied,
-  GraphKindChanged, GraphLoaded, GraphRelationshipChanged, GraphValueChanged,
-  KindSelected, Loaded, Loading, Model, MonthChanged, NameChanged,
-  NodeDeleteRequested, NodeDeleteResolved, NodeDescriptionChanged,
+  EdgeForm, EdgeFromSelected, EdgeRelationshipChanged, EdgeSaved, EdgeSubmitted,
+  EdgeToSelected, EdgesLoaded, EditCancelled, EditStarted, Failed, Form,
+  GenderChanged, GenericFieldAdded, GenericFieldRemoved, GenericForm,
+  GenericKeyChanged, GenericValueChanged, GraphFieldChanged, GraphFilter,
+  GraphFilterApplied, GraphKindChanged, GraphLoaded, GraphRelationshipChanged,
+  GraphValueChanged, KindSelected, Loaded, Loading, Model, MonthChanged,
+  NameChanged, NodeDeleteRequested, NodeDeleteResolved, NodeDescriptionChanged,
   NodeEditCancelled, NodeEditStarted, NodeForm, NodeNameChanged, NodeSaved,
   NodeSubmitted, NodesLoaded, PersonForm, Saved, Submitted, TimelineLoaded,
   UniverseDeselected, UniverseSelected, UniversesLoaded, YearChanged,
@@ -80,7 +79,11 @@ fn save(model: Model) -> Effect(Msg) {
 }
 
 fn delete(id: String) -> Effect(Msg) {
-  rsvp.delete("/universes/" <> id, json.null(), rsvp.expect_text(DeleteResolved))
+  rsvp.delete(
+    "/universes/" <> id,
+    json.null(),
+    rsvp.expect_text(DeleteResolved),
+  )
 }
 
 fn save_node(model: Model) -> Effect(Msg) {
@@ -417,6 +420,9 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       Model(..model, timeline: Loaded(timeline)),
       effect.none(),
     )
-    TimelineLoaded(Error(_)) -> #(Model(..model, timeline: Failed), effect.none())
+    TimelineLoaded(Error(_)) -> #(
+      Model(..model, timeline: Failed),
+      effect.none(),
+    )
   }
 }

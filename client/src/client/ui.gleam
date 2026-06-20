@@ -4,5 +4,8 @@ import lustre/element.{type Element}
 import lustre/element/html
 
 pub fn status(text: String) -> Element(Msg) {
-  html.p([attribute.attribute("data-test-id", "status")], [element.text(text)])
+  html.p(
+    [attribute.class("status"), attribute.attribute("data-test-id", "status")],
+    [element.text(text)],
+  )
 }

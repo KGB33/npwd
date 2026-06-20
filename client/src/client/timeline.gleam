@@ -20,7 +20,10 @@ pub fn timeline_view(
         [] -> ui.status("No events yet")
         events ->
           html.ol(
-            [attribute.attribute("data-test-id", "timeline")],
+            [
+              attribute.class("chronicle"),
+              attribute.attribute("data-test-id", "timeline"),
+            ],
             list.map(events, fn(ev) { timeline_event(ev, g.edges, nodes) }),
           )
       }
@@ -34,15 +37,32 @@ fn timeline_event(
 ) -> Element(Msg) {
   let incident =
     list.filter(edges, fn(e) { e.from == event.id || e.to == event.id })
-  html.li([attribute.attribute("data-test-id", "timeline-event")], [
-    html.span([attribute.attribute("data-test-id", "timeline-when")], [
-      element.text(event_when(event.kind)),
-    ]),
-    html.span([attribute.attribute("data-test-id", "timeline-name")], [
-      element.text(event.name),
-    ]),
-    html.ul([], list.map(incident, fn(e) { timeline_link(event, e, nodes) })),
-  ])
+  html.li(
+    [
+      attribute.class("event"),
+      attribute.attribute("data-test-id", "timeline-event"),
+    ],
+    [
+      html.span(
+        [
+          attribute.class("event__when"),
+          attribute.attribute("data-test-id", "timeline-when"),
+        ],
+        [element.text(event_when(event.kind))],
+      ),
+      html.span(
+        [
+          attribute.class("event__name"),
+          attribute.attribute("data-test-id", "timeline-name"),
+        ],
+        [element.text(event.name)],
+      ),
+      html.ul(
+        [attribute.class("event__links")],
+        list.map(incident, fn(e) { timeline_link(event, e, nodes) }),
+      ),
+    ],
+  )
 }
 
 fn timeline_link(
@@ -54,7 +74,11 @@ fn timeline_link(
     True -> edge.to
     False -> edge.from
   }
-  html.li([attribute.attribute("data-test-id", "timeline-link")], [
-    element.text(edge.relationship <> " → " <> node_name(nodes, other)),
-  ])
+  html.li(
+    [
+      attribute.class("marginalia"),
+      attribute.attribute("data-test-id", "timeline-link"),
+    ],
+    [element.text(edge.relationship <> " → " <> node_name(nodes, other))],
+  )
 }

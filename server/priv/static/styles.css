@@ -182,3 +182,285 @@ button:hover {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ====================================================================== */
+/* Components — the bound leaf                                             */
+/* ====================================================================== */
+
+/* ---- The codex: a leaf of the register -------------------------------- */
+.codex {
+  max-width: var(--measure);
+  margin: 2rem auto;
+  padding: 2.5rem clamp(1.25rem, 4vw, 3rem) 4rem;
+  background: var(--vellum);
+  border: 1px solid var(--vellum-edge);
+  border-radius: var(--radius);
+  box-shadow:
+    0 1px 2px rgba(43, 33, 23, 0.18),
+    0 22px 48px -30px rgba(43, 33, 23, 0.5);
+  animation: leaf-in 0.5s ease both;
+}
+
+@keyframes leaf-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* ---- Masthead / running head ------------------------------------------ */
+.masthead {
+  margin-bottom: 1.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--madder);
+}
+
+.masthead__lead:not(:empty) {
+  margin-bottom: 0.4rem;
+}
+
+.masthead__title {
+  margin: 0;
+  font-size: clamp(2.3rem, 6vw, 3.4rem);
+  letter-spacing: 0.01em;
+}
+
+.masthead__sub {
+  font-variant: small-caps;
+  letter-spacing: 0.2em;
+  color: var(--sepia);
+  font-size: 0.9rem;
+}
+
+.masthead__back {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--verdigris);
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+}
+
+.masthead__back:hover {
+  border: 0;
+  text-decoration: underline;
+}
+
+/* ---- Chapters --------------------------------------------------------- */
+.chapter {
+  margin: 2.25rem 0;
+}
+
+.chapter__title {
+  font-size: 1.65rem;
+  margin: 0 0 0.85rem;
+}
+
+.chapter__title::before {
+  content: "❧";
+  margin-right: 0.5rem;
+  color: var(--rule);
+  font-size: 0.85em;
+}
+
+/* ---- Forms: a fair-hand panel ----------------------------------------- */
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.1rem;
+  padding: 1rem 1.1rem;
+  background: var(--vellum-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.panel input,
+.panel select {
+  flex: 1 1 9rem;
+  min-width: 8rem;
+}
+
+.panel .subfields,
+.panel .date-inputs,
+.panel .generic-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  flex: 1 1 100%;
+}
+
+.panel .date-inputs input {
+  flex: 1 1 4rem;
+  min-width: 0;
+}
+
+/* primary action: pressed in rubric red */
+.btn-primary {
+  background: var(--madder);
+  border-color: var(--madder);
+  color: var(--vellum);
+}
+
+.btn-primary:hover {
+  background: #682318;
+  border-color: #682318;
+}
+
+/* ---- Registry: ruled, foliated entries -------------------------------- */
+.registry {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: folio;
+  border-top: 1px solid var(--rule);
+}
+
+.entry {
+  counter-increment: folio;
+  display: grid;
+  grid-template-columns: var(--gutter) 1fr auto;
+  align-items: baseline;
+  gap: 0.4rem 1rem;
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.entry::before {
+  content: counter(folio, decimal-leading-zero);
+  text-align: right;
+  font-variant: small-caps;
+  font-size: 0.8em;
+  letter-spacing: 0.05em;
+  color: var(--sepia);
+}
+
+.entry:nth-child(even) {
+  background: rgba(43, 33, 23, 0.03);
+}
+
+.entry__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.7rem;
+}
+
+.entry__name {
+  font-size: 1.15rem;
+}
+
+.entry__actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.entry__actions button {
+  font-size: 0.78rem;
+  padding: 0.12rem 0.5rem;
+}
+
+/* a relationship written between two names: from —rel→ to */
+.relation {
+  color: var(--sepia);
+  font-style: italic;
+}
+
+.relation::before {
+  content: "—";
+  margin: 0 0.3rem;
+  color: var(--rule);
+  font-style: normal;
+}
+
+.relation::after {
+  content: "→";
+  margin: 0 0.3rem;
+  color: var(--rule);
+  font-style: normal;
+}
+
+/* kind, a sepia small-cap tag */
+.kind {
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  color: var(--sepia);
+}
+
+/* ---- Status / empty states ------------------------------------------- */
+.status {
+  color: var(--sepia);
+  font-style: italic;
+  padding: 0.55rem 0.5rem;
+}
+
+/* ---- The web (graph) -------------------------------------------------- */
+.graph__summary {
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--sepia);
+}
+
+.graph__canvas {
+  margin-top: 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--vellum-2);
+  overflow: auto;
+  max-width: 100%;
+}
+
+/* ---- The chronicle (timeline) ---------------------------------------- */
+.chronicle {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.event {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  column-gap: 1rem;
+  row-gap: 0.15rem;
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.event__when {
+  grid-column: 1;
+  grid-row: 1;
+  text-align: right;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  font-size: 0.85rem;
+  color: var(--madder);
+}
+
+.event__name {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 1.2rem;
+}
+
+.event__links {
+  grid-column: 2;
+  grid-row: 2;
+  list-style: none;
+  margin: 0.15rem 0 0;
+  padding: 0;
+}
+
+.marginalia {
+  color: var(--sepia);
+  font-style: italic;
+  font-size: 0.95rem;
+}
+
+.marginalia::before {
+  content: "↳ ";
+  color: var(--rule);
+  font-style: normal;
+}
