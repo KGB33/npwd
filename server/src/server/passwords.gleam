@@ -23,6 +23,11 @@ pub fn verify(password: String, encoded: String) -> Bool {
   }
 }
 
+pub fn dummy_verify(password: String) -> Bool {
+  let _ = stretch(password, <<0:size(128)>>, iterations)
+  False
+}
+
 fn stretch(password: String, salt: BitArray, iters: Int) -> BitArray {
   pbkdf2(bit_array.from_string(password), salt, iters, dk_length)
 }

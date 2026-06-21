@@ -13,3 +13,7 @@ pub fn salts_are_unique_test() {
 pub fn garbage_hash_does_not_verify_test() {
   assert !passwords.verify("anything", "not-a-real-hash")
 }
+
+pub fn dummy_verify_is_false_test() {
+  assert passwords.dummy_verify("anything") == False
+}

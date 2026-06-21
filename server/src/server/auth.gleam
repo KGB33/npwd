@@ -95,7 +95,10 @@ fn signin(config: db.Config, req: Request) -> Response {
               )
             False -> wisp.response(401)
           }
-        Error(_) -> wisp.response(401)
+        Error(_) -> {
+          let _ = passwords.dummy_verify(input.password)
+          wisp.response(401)
+        }
       }
     Error(_) -> wisp.bad_request("invalid credentials")
   }
