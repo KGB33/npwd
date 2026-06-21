@@ -1,6 +1,5 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Delete, Get, Post, Put}
-import gleam/json
 import server/auth
 import server/db
 import server/web
@@ -27,7 +26,8 @@ pub fn handle(
       }
     [id] ->
       case req.method {
-        Get -> respond_one(db.get_universe(config, id))
+        Get ->
+          web.respond(db.get_universe(config, id), shared.universe_to_json, 200)
         Put -> {
           use _ <- auth.require_owner(req, config, id)
           update(config, req, id)
@@ -53,23 +53,18 @@ fn input_decoder() -> Decoder(Input) {
 }
 
 fn list(config: db.Config, owner: String) -> Response {
-  case db.list_universes(config, owner) {
-    Ok(universes) ->
-      json.array(universes, shared.universe_to_json)
-      |> json.to_string
-      |> wisp.json_response(200)
-    Error(e) -> web.db_error(e)
-  }
+  web.collection(db.list_universes(config, owner), shared.universe_to_json)
 }
 
 fn create(config: db.Config, req: Request, owner: String) -> Response {
   use body <- wisp.require_json(req)
   case decode.run(body, input_decoder()) {
     Ok(input) ->
-      case db.create_universe(config, input.name, input.description, owner) {
-        Ok(universe) -> single(universe, 201)
-        Error(e) -> web.db_error(e)
-      }
+      web.respond(
+        db.create_universe(config, input.name, input.description, owner),
+        shared.universe_to_json,
+        201,
+      )
     Error(_) -> wisp.bad_request("invalid universe")
   }
 }
@@ -78,7 +73,11 @@ fn update(config: db.Config, req: Request, id: String) -> Response {
   use body <- wisp.require_json(req)
   case decode.run(body, input_decoder()) {
     Ok(input) ->
-      respond_one(db.update_universe(config, id, input.name, input.description))
+      web.respond(
+        db.update_universe(config, id, input.name, input.description),
+        shared.universe_to_json,
+        200,
+      )
     Error(_) -> wisp.bad_request("invalid universe")
   }
 }
@@ -88,18 +87,4 @@ fn delete(config: db.Config, id: String) -> Response {
     Ok(_) -> wisp.no_content()
     Error(e) -> web.db_error(e)
   }
-}
-
-fn respond_one(result: Result(shared.Universe, db.DbError)) -> Response {
-  case result {
-    Ok(universe) -> single(universe, 200)
-    Error(e) -> web.db_error(e)
-  }
-}
-
-fn single(universe: shared.Universe, status: Int) -> Response {
-  universe
-  |> shared.universe_to_json
-  |> json.to_string
-  |> wisp.json_response(status)
 }

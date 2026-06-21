@@ -1,6 +1,5 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Delete, Get, Post}
-import gleam/json
 import server/auth
 import server/db
 import server/web
@@ -25,7 +24,12 @@ pub fn handle(
       }
     [id] ->
       case req.method {
-        Get -> respond_one(db.get_edge(config, universe, id))
+        Get ->
+          web.respond(
+            db.get_edge(config, universe, id),
+            shared.edge_to_json,
+            200,
+          )
         Delete -> {
           use _ <- auth.require_owner(req, config, universe)
           delete(config, universe, id)
@@ -48,31 +52,24 @@ fn input_decoder() -> Decoder(Input) {
 }
 
 fn list(config: db.Config, universe: String) -> Response {
-  case db.list_edges(config, universe) {
-    Ok(edges) ->
-      json.array(edges, shared.edge_to_json)
-      |> json.to_string
-      |> wisp.json_response(200)
-    Error(e) -> web.db_error(e)
-  }
+  web.collection(db.list_edges(config, universe), shared.edge_to_json)
 }
 
 fn create(config: db.Config, req: Request, universe: String) -> Response {
   use body <- wisp.require_json(req)
   case decode.run(body, input_decoder()) {
     Ok(input) ->
-      case
+      web.respond(
         db.create_edge(
           config,
           universe,
           input.relationship,
           input.from,
           input.to,
-        )
-      {
-        Ok(edge) -> single(edge, 201)
-        Error(e) -> web.db_error(e)
-      }
+        ),
+        shared.edge_to_json,
+        201,
+      )
     Error(_) -> wisp.bad_request("invalid edge")
   }
 }
@@ -82,18 +79,4 @@ fn delete(config: db.Config, universe: String, id: String) -> Response {
     Ok(_) -> wisp.no_content()
     Error(e) -> web.db_error(e)
   }
-}
-
-fn respond_one(result: Result(shared.Edge, db.DbError)) -> Response {
-  case result {
-    Ok(edge) -> single(edge, 200)
-    Error(e) -> web.db_error(e)
-  }
-}
-
-fn single(edge: shared.Edge, status: Int) -> Response {
-  edge
-  |> shared.edge_to_json
-  |> json.to_string
-  |> wisp.json_response(status)
 }

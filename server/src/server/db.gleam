@@ -154,8 +154,7 @@ pub fn query(
   surql: String,
   decoder: Decoder(a),
 ) -> Result(a, DbError) {
-  use statements <- result.try(run(config, surql, []))
-  last_result(statements, decoder)
+  query_vars(config, surql, [], decoder)
 }
 
 fn query_vars(

@@ -1,7 +1,6 @@
 import gleam/dict
 import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Delete, Get, Post, Put}
-import gleam/json
 import server/auth
 import server/db
 import server/web
@@ -26,7 +25,12 @@ pub fn handle(
       }
     [id] ->
       case req.method {
-        Get -> respond_one(db.get_node(config, universe, id))
+        Get ->
+          web.respond(
+            db.get_node(config, universe, id),
+            shared.node_to_json,
+            200,
+          )
         Put -> {
           use _ <- auth.require_owner(req, config, universe)
           update(config, req, universe, id)
@@ -42,7 +46,11 @@ pub fn handle(
 }
 
 type Input {
-  Input(name: String, kind: String, fields: dict.Dict(String, shared.FieldValue))
+  Input(
+    name: String,
+    kind: String,
+    fields: dict.Dict(String, shared.FieldValue),
+  )
 }
 
 fn input_decoder() -> Decoder(Input) {
@@ -57,25 +65,18 @@ fn input_decoder() -> Decoder(Input) {
 }
 
 fn list(config: db.Config, universe: String) -> Response {
-  case db.list_nodes(config, universe) {
-    Ok(nodes) ->
-      json.array(nodes, shared.node_to_json)
-      |> json.to_string
-      |> wisp.json_response(200)
-    Error(e) -> web.db_error(e)
-  }
+  web.collection(db.list_nodes(config, universe), shared.node_to_json)
 }
 
 fn create(config: db.Config, req: Request, universe: String) -> Response {
   use body <- wisp.require_json(req)
   case decode.run(body, input_decoder()) {
     Ok(input) ->
-      case
-        db.create_node(config, universe, input.name, input.kind, input.fields)
-      {
-        Ok(node) -> single(node, 201)
-        Error(e) -> web.db_error(e)
-      }
+      web.respond(
+        db.create_node(config, universe, input.name, input.kind, input.fields),
+        shared.node_to_json,
+        201,
+      )
     Error(_) -> wisp.bad_request("invalid node")
   }
 }
@@ -89,14 +90,18 @@ fn update(
   use body <- wisp.require_json(req)
   case decode.run(body, input_decoder()) {
     Ok(input) ->
-      respond_one(db.update_node(
-        config,
-        universe,
-        id,
-        input.name,
-        input.kind,
-        input.fields,
-      ))
+      web.respond(
+        db.update_node(
+          config,
+          universe,
+          id,
+          input.name,
+          input.kind,
+          input.fields,
+        ),
+        shared.node_to_json,
+        200,
+      )
     Error(_) -> wisp.bad_request("invalid node")
   }
 }
@@ -106,18 +111,4 @@ fn delete(config: db.Config, universe: String, id: String) -> Response {
     Ok(_) -> wisp.no_content()
     Error(e) -> web.db_error(e)
   }
-}
-
-fn respond_one(result: Result(shared.Node, db.DbError)) -> Response {
-  case result {
-    Ok(node) -> single(node, 200)
-    Error(e) -> web.db_error(e)
-  }
-}
-
-fn single(node: shared.Node, status: Int) -> Response {
-  node
-  |> shared.node_to_json
-  |> json.to_string
-  |> wisp.json_response(status)
 }

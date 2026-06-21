@@ -136,31 +136,39 @@ fn delete(id: String) -> Effect(Msg) {
   )
 }
 
-fn save_node(model: Model) -> Effect(Msg) {
+fn selected_effect(
+  model: Model,
+  then: fn(shared.Universe) -> Effect(Msg),
+) -> Effect(Msg) {
   case model.selected {
+    Some(universe) -> then(universe)
     None -> effect.none()
-    Some(universe) -> {
-      let body = node_body(model.node_form)
-      let handler = rsvp.expect_json(shared.node_decoder(), NodeSaved)
-      let base = "/universes/" <> universe.id <> "/nodes"
-      case model.editing_node {
-        None -> rsvp.post(base, body, handler)
-        Some(id) -> rsvp.put(base <> "/" <> id, body, handler)
-      }
-    }
+  }
+}
+
+fn save_node(model: Model) -> Effect(Msg) {
+  use universe <- selected_effect(model)
+  let body = node_body(model.node_form)
+  let handler = rsvp.expect_json(shared.node_decoder(), NodeSaved)
+  let base = "/universes/" <> universe.id <> "/nodes"
+  case model.editing_node {
+    None -> rsvp.post(base, body, handler)
+    Some(id) -> rsvp.put(base <> "/" <> id, body, handler)
   }
 }
 
 fn delete_node(model: Model, id: String) -> Effect(Msg) {
-  case model.selected {
-    None -> effect.none()
-    Some(universe) ->
-      rsvp.delete(
-        "/universes/" <> universe.id <> "/nodes/" <> id,
-        json.null(),
-        rsvp.expect_text(NodeDeleteResolved),
-      )
-  }
+  use universe <- selected_effect(model)
+  rsvp.delete(
+    "/universes/" <> universe.id <> "/nodes/" <> id,
+    json.null(),
+    rsvp.expect_text(NodeDeleteResolved),
+  )
+}
+
+fn reload_nodes(model: Model) -> Effect(Msg) {
+  use universe <- selected_effect(model)
+  load_nodes(universe.id)
 }
 
 fn descriptions_base(model: Model, node: String) -> Result(String, Nil) {
@@ -232,27 +240,26 @@ fn load_edges(universe: String) -> Effect(Msg) {
 }
 
 fn save_edge(model: Model) -> Effect(Msg) {
-  case model.selected {
-    None -> effect.none()
-    Some(universe) ->
-      rsvp.post(
-        "/universes/" <> universe.id <> "/edges",
-        edge_body(model.edge_form),
-        rsvp.expect_json(shared.edge_decoder(), EdgeSaved),
-      )
-  }
+  use universe <- selected_effect(model)
+  rsvp.post(
+    "/universes/" <> universe.id <> "/edges",
+    edge_body(model.edge_form),
+    rsvp.expect_json(shared.edge_decoder(), EdgeSaved),
+  )
 }
 
 fn delete_edge(model: Model, id: String) -> Effect(Msg) {
-  case model.selected {
-    None -> effect.none()
-    Some(universe) ->
-      rsvp.delete(
-        "/universes/" <> universe.id <> "/edges/" <> id,
-        json.null(),
-        rsvp.expect_text(EdgeDeleteResolved),
-      )
-  }
+  use universe <- selected_effect(model)
+  rsvp.delete(
+    "/universes/" <> universe.id <> "/edges/" <> id,
+    json.null(),
+    rsvp.expect_text(EdgeDeleteResolved),
+  )
+}
+
+fn reload_edges(model: Model) -> Effect(Msg) {
+  use universe <- selected_effect(model)
+  load_edges(universe.id)
 }
 
 fn load_graph(universe: String, filter: GraphFilter) -> Effect(Msg) {
@@ -449,14 +456,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       effect.none(),
     )
     NodeSubmitted -> #(model, save_node(model))
-    NodeSaved(Ok(_)) ->
-      case model.selected {
-        Some(universe) -> #(
-          Model(..model, node_form: empty_node_form, editing_node: None),
-          load_nodes(universe.id),
-        )
-        None -> #(model, effect.none())
-      }
+    NodeSaved(Ok(_)) -> #(
+      Model(..model, node_form: empty_node_form, editing_node: None),
+      reload_nodes(model),
+    )
     NodeSaved(Error(_)) -> #(model, effect.none())
     NodeEditStarted(node) -> #(
       Model(
@@ -482,11 +485,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       effect.none(),
     )
     NodeDeleteRequested(id) -> #(model, delete_node(model, id))
-    NodeDeleteResolved(_) ->
-      case model.selected {
-        Some(universe) -> #(model, load_nodes(universe.id))
-        None -> #(model, effect.none())
-      }
+    NodeDeleteResolved(_) -> #(model, reload_nodes(model))
     DescriptionsLoaded(Ok(descriptions)) -> #(
       Model(..model, descriptions: Loaded(descriptions)),
       effect.none(),
@@ -533,21 +532,13 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         True -> #(model, save_edge(model))
         False -> #(model, effect.none())
       }
-    EdgeSaved(Ok(_)) ->
-      case model.selected {
-        Some(universe) -> #(
-          Model(..model, edge_form: empty_edge_form),
-          load_edges(universe.id),
-        )
-        None -> #(model, effect.none())
-      }
+    EdgeSaved(Ok(_)) -> #(
+      Model(..model, edge_form: empty_edge_form),
+      reload_edges(model),
+    )
     EdgeSaved(Error(_)) -> #(model, effect.none())
     EdgeDeleteRequested(id) -> #(model, delete_edge(model, id))
-    EdgeDeleteResolved(_) ->
-      case model.selected {
-        Some(universe) -> #(model, load_edges(universe.id))
-        None -> #(model, effect.none())
-      }
+    EdgeDeleteResolved(_) -> #(model, reload_edges(model))
     GraphLoaded(Ok(graph)) -> #(
       Model(..model, graph: Loaded(graph)),
       render_graph(graph),

@@ -1,6 +1,5 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Delete, Get, Post, Put}
-import gleam/json
 import server/auth
 import server/db
 import server/web
@@ -50,13 +49,10 @@ fn input_decoder() -> Decoder(Input) {
 }
 
 fn list(config: db.Config, universe: String, node: String) -> Response {
-  case db.list_descriptions(config, universe, node) {
-    Ok(ds) ->
-      json.array(ds, shared.description_to_json)
-      |> json.to_string
-      |> wisp.json_response(200)
-    Error(e) -> web.db_error(e)
-  }
+  web.collection(
+    db.list_descriptions(config, universe, node),
+    shared.description_to_json,
+  )
 }
 
 fn create(
@@ -68,10 +64,11 @@ fn create(
   use body <- wisp.require_json(req)
   case decode.run(body, input_decoder()) {
     Ok(input) ->
-      case db.create_description(config, universe, node, input.body) {
-        Ok(d) -> single(d, 201)
-        Error(e) -> web.db_error(e)
-      }
+      web.respond(
+        db.create_description(config, universe, node, input.body),
+        shared.description_to_json,
+        201,
+      )
     Error(_) -> wisp.bad_request("invalid description")
   }
 }
@@ -85,7 +82,11 @@ fn update(
   use body <- wisp.require_json(req)
   case decode.run(body, input_decoder()) {
     Ok(input) ->
-      respond_one(db.update_description(config, universe, id, input.body))
+      web.respond(
+        db.update_description(config, universe, id, input.body),
+        shared.description_to_json,
+        200,
+      )
     Error(_) -> wisp.bad_request("invalid description")
   }
 }
@@ -95,18 +96,4 @@ fn delete(config: db.Config, universe: String, id: String) -> Response {
     Ok(_) -> wisp.no_content()
     Error(e) -> web.db_error(e)
   }
-}
-
-fn respond_one(result: Result(shared.Description, db.DbError)) -> Response {
-  case result {
-    Ok(d) -> single(d, 200)
-    Error(e) -> web.db_error(e)
-  }
-}
-
-fn single(d: shared.Description, status: Int) -> Response {
-  d
-  |> shared.description_to_json
-  |> json.to_string
-  |> wisp.json_response(status)
 }

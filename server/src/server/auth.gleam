@@ -1,9 +1,9 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Get, Post}
-import gleam/json
 import gleam/result
 import server/db
 import server/passwords
+import server/web
 import shared
 import wisp.{type Request, type Response}
 
@@ -11,7 +11,10 @@ const cookie = "session"
 
 const max_age = 2_592_000
 
-pub fn current_user(req: Request, config: db.Config) -> Result(shared.User, Nil) {
+pub fn current_user(
+  req: Request,
+  config: db.Config,
+) -> Result(shared.User, Nil) {
   use id <- result.try(wisp.get_cookie(req, cookie, wisp.Signed))
   db.get_user(config, id) |> result.replace_error(Nil)
 }
@@ -43,7 +46,11 @@ pub fn require_owner(
   }
 }
 
-pub fn handle(config: db.Config, req: Request, segments: List(String)) -> Response {
+pub fn handle(
+  config: db.Config,
+  req: Request,
+  segments: List(String),
+) -> Response {
   case segments {
     ["signin"] -> signin(config, req)
     ["signout"] -> signout(req)
@@ -54,10 +61,8 @@ pub fn handle(config: db.Config, req: Request, segments: List(String)) -> Respon
 
 pub fn me(config: db.Config, req: Request) -> Response {
   use <- wisp.require_method(req, Get)
-  case current_user(req, config) {
-    Ok(user) -> json_user(user, 200)
-    Error(_) -> wisp.response(401)
-  }
+  use user <- require_user(req, config)
+  web.json(user, shared.user_to_json, 200)
 }
 
 type Input {
@@ -80,8 +85,14 @@ fn signin(config: db.Config, req: Request) -> Response {
         Ok(creds) ->
           case passwords.verify(input.password, creds.hash) {
             True ->
-              json_user(creds.user, 200)
-              |> wisp.set_cookie(req, cookie, creds.user.id, wisp.Signed, max_age)
+              web.json(creds.user, shared.user_to_json, 200)
+              |> wisp.set_cookie(
+                req,
+                cookie,
+                creds.user.id,
+                wisp.Signed,
+                max_age,
+              )
             False -> wisp.response(401)
           }
         Error(_) -> wisp.response(401)
@@ -102,9 +113,14 @@ fn create_user(config: db.Config, req: Request) -> Response {
   case decode.run(body, input_decoder()) {
     Ok(input) ->
       case
-        db.create_user(config, input.email, passwords.hash(input.password), input.admin)
+        db.create_user(
+          config,
+          input.email,
+          passwords.hash(input.password),
+          input.admin,
+        )
       {
-        Ok(user) -> json_user(user, 201)
+        Ok(user) -> web.json(user, shared.user_to_json, 201)
         Error(_) -> wisp.response(409)
       }
     Error(_) -> wisp.bad_request("invalid user")
@@ -121,8 +137,4 @@ fn require_admin(
     True -> handler(user)
     False -> wisp.response(403)
   }
-}
-
-fn json_user(user: shared.User, status: Int) -> Response {
-  user |> shared.user_to_json |> json.to_string |> wisp.json_response(status)
 }
