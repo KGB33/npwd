@@ -10,7 +10,11 @@ pub type FieldValue {
 }
 
 pub type Universe {
-  Universe(id: String, name: String, description: String)
+  Universe(id: String, name: String, description: String, owner: String)
+}
+
+pub type User {
+  User(id: String, email: String, admin: Bool)
 }
 
 pub type Node {
@@ -71,6 +75,7 @@ pub fn universe_to_json(u: Universe) -> Json {
     #("id", json.string(u.id)),
     #("name", json.string(u.name)),
     #("description", json.string(u.description)),
+    #("owner", json.string(u.owner)),
   ])
 }
 
@@ -78,7 +83,23 @@ pub fn universe_decoder() -> Decoder(Universe) {
   use id <- decode.field("id", decode.string)
   use name <- decode.field("name", decode.string)
   use description <- decode.field("description", decode.string)
-  decode.success(Universe(id, name, description))
+  use owner <- decode.optional_field("owner", "", decode.string)
+  decode.success(Universe(id, name, description, owner))
+}
+
+pub fn user_to_json(u: User) -> Json {
+  json.object([
+    #("id", json.string(u.id)),
+    #("email", json.string(u.email)),
+    #("admin", json.bool(u.admin)),
+  ])
+}
+
+pub fn user_decoder() -> Decoder(User) {
+  use id <- decode.field("id", decode.string)
+  use email <- decode.field("email", decode.string)
+  use admin <- decode.optional_field("admin", False, decode.bool)
+  decode.success(User(id, email, admin))
 }
 
 pub fn node_to_json(n: Node) -> Json {

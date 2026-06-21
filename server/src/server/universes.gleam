@@ -1,6 +1,7 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Delete, Get, Post, Put}
 import gleam/json
+import server/auth
 import server/db
 import server/web
 import shared
@@ -14,15 +15,27 @@ pub fn handle(
   case segments {
     [] ->
       case req.method {
-        Get -> list(config)
-        Post -> create(config, req)
+        Get -> {
+          use user <- auth.require_user(req, config)
+          list(config, user.id)
+        }
+        Post -> {
+          use user <- auth.require_user(req, config)
+          create(config, req, user.id)
+        }
         _ -> wisp.method_not_allowed([Get, Post])
       }
     [id] ->
       case req.method {
         Get -> respond_one(db.get_universe(config, id))
-        Put -> update(config, req, id)
-        Delete -> delete(config, id)
+        Put -> {
+          use _ <- auth.require_owner(req, config, id)
+          update(config, req, id)
+        }
+        Delete -> {
+          use _ <- auth.require_owner(req, config, id)
+          delete(config, id)
+        }
         _ -> wisp.method_not_allowed([Get, Put, Delete])
       }
     _ -> wisp.not_found()
@@ -39,8 +52,8 @@ fn input_decoder() -> Decoder(Input) {
   decode.success(Input(name:, description:))
 }
 
-fn list(config: db.Config) -> Response {
-  case db.list_universes(config) {
+fn list(config: db.Config, owner: String) -> Response {
+  case db.list_universes(config, owner) {
     Ok(universes) ->
       json.array(universes, shared.universe_to_json)
       |> json.to_string
@@ -49,11 +62,11 @@ fn list(config: db.Config) -> Response {
   }
 }
 
-fn create(config: db.Config, req: Request) -> Response {
+fn create(config: db.Config, req: Request, owner: String) -> Response {
   use body <- wisp.require_json(req)
   case decode.run(body, input_decoder()) {
     Ok(input) ->
-      case db.create_universe(config, input.name, input.description) {
+      case db.create_universe(config, input.name, input.description, owner) {
         Ok(universe) -> single(universe, 201)
         Error(e) -> web.db_error(e)
       }

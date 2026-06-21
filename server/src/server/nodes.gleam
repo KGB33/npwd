@@ -2,6 +2,7 @@ import gleam/dict
 import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Delete, Get, Post, Put}
 import gleam/json
+import server/auth
 import server/db
 import server/web
 import shared
@@ -17,14 +18,23 @@ pub fn handle(
     [] ->
       case req.method {
         Get -> list(config, universe)
-        Post -> create(config, req, universe)
+        Post -> {
+          use _ <- auth.require_owner(req, config, universe)
+          create(config, req, universe)
+        }
         _ -> wisp.method_not_allowed([Get, Post])
       }
     [id] ->
       case req.method {
         Get -> respond_one(db.get_node(config, universe, id))
-        Put -> update(config, req, universe, id)
-        Delete -> delete(config, universe, id)
+        Put -> {
+          use _ <- auth.require_owner(req, config, universe)
+          update(config, req, universe, id)
+        }
+        Delete -> {
+          use _ <- auth.require_owner(req, config, universe)
+          delete(config, universe, id)
+        }
         _ -> wisp.method_not_allowed([Get, Put, Delete])
       }
     _ -> wisp.not_found()

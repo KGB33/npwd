@@ -1,6 +1,7 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Delete, Get, Post}
 import gleam/json
+import server/auth
 import server/db
 import server/web
 import shared
@@ -16,13 +17,19 @@ pub fn handle(
     [] ->
       case req.method {
         Get -> list(config, universe)
-        Post -> create(config, req, universe)
+        Post -> {
+          use _ <- auth.require_owner(req, config, universe)
+          create(config, req, universe)
+        }
         _ -> wisp.method_not_allowed([Get, Post])
       }
     [id] ->
       case req.method {
         Get -> respond_one(db.get_edge(config, universe, id))
-        Delete -> delete(config, universe, id)
+        Delete -> {
+          use _ <- auth.require_owner(req, config, universe)
+          delete(config, universe, id)
+        }
         _ -> wisp.method_not_allowed([Get, Delete])
       }
     _ -> wisp.not_found()

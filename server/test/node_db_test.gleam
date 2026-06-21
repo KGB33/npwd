@@ -5,8 +5,7 @@ import server/db
 import shared
 
 fn universe(config: db.Config, name: String) -> String {
-  let assert Ok(u) = db.create_universe(config, name, "")
-  u.id
+  helpers.owned_universe(config, name)
 }
 
 pub fn create_returns_node_test() {

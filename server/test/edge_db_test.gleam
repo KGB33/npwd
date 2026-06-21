@@ -4,8 +4,7 @@ import helpers
 import server/db
 
 fn universe(config: db.Config, name: String) -> String {
-  let assert Ok(u) = db.create_universe(config, name, "")
-  u.id
+  helpers.owned_universe(config, name)
 }
 
 fn node(config: db.Config, u: String, name: String) -> String {

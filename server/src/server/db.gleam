@@ -181,12 +181,69 @@ fn query_first(
   }
 }
 
+pub type Credentials {
+  Credentials(user: shared.User, hash: String)
+}
+
+pub fn count_users(config: Config) -> Result(Int, DbError) {
+  query(config, "RETURN count(SELECT id FROM user)", decode.int)
+}
+
+pub fn create_user(
+  config: Config,
+  email: String,
+  hash: String,
+  admin: Bool,
+) -> Result(shared.User, DbError) {
+  query_first(
+    config,
+    "CREATE user CONTENT { email: $email, hash: $hash, admin: $admin } RETURN id, email, admin",
+    [
+      #("email", json.string(email)),
+      #("hash", json.string(hash)),
+      #("admin", json.bool(admin)),
+    ],
+    shared.user_decoder(),
+  )
+}
+
+pub fn get_user(config: Config, id: String) -> Result(shared.User, DbError) {
+  use <- require_valid([id])
+  query_first(
+    config,
+    "SELECT id, email, admin FROM type::thing($id)",
+    [#("id", json.string(id))],
+    shared.user_decoder(),
+  )
+}
+
+pub fn find_credentials(
+  config: Config,
+  email: String,
+) -> Result(Credentials, DbError) {
+  query_first(
+    config,
+    "SELECT id, email, admin, hash FROM user WHERE email = $email",
+    [#("email", json.string(email))],
+    credentials_decoder(),
+  )
+}
+
+fn credentials_decoder() -> Decoder(Credentials) {
+  use user <- decode.then(shared.user_decoder())
+  use hash <- decode.field("hash", decode.string)
+  decode.success(Credentials(user, hash))
+}
+
 pub fn list_universes(
   config: Config,
+  owner: String,
 ) -> Result(List(shared.Universe), DbError) {
-  query(
+  use <- require_valid([owner])
+  query_vars(
     config,
-    "SELECT * FROM universe ORDER BY name",
+    "SELECT * FROM universe WHERE owner = type::thing($o) ORDER BY name",
+    [#("o", json.string(owner))],
     decode.list(shared.universe_decoder()),
   )
 }
@@ -195,11 +252,17 @@ pub fn create_universe(
   config: Config,
   name: String,
   description: String,
+  owner: String,
 ) -> Result(shared.Universe, DbError) {
+  use <- require_valid([owner])
   query_first(
     config,
-    "CREATE universe SET name = $name, description = $description",
-    [#("name", json.string(name)), #("description", json.string(description))],
+    "CREATE universe SET name = $name, description = $description, owner = type::thing($o)",
+    [
+      #("name", json.string(name)),
+      #("description", json.string(description)),
+      #("o", json.string(owner)),
+    ],
     shared.universe_decoder(),
   )
 }

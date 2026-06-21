@@ -23,6 +23,8 @@ wisp = ">= 2.0.0 and < 3.0.0"
 mist = ">= 6.0.0 and < 7.0.0"
 simplifile = ">= 2.0.0 and < 3.0.0"
 shared = { path = "../shared" }
+gleam_crypto = ">= 1.6.0 and < 2.0.0"
+envoy = ">= 1.2.0 and < 2.0.0"
 
 [dev_dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"

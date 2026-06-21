@@ -18,7 +18,15 @@ pub fn universe_round_trip_test() {
   round_trip(
     shared.universe_to_json,
     shared.universe_decoder(),
-    shared.Universe("u1", "Middle Earth", "Tolkien's world"),
+    shared.Universe("u1", "Middle Earth", "Tolkien's world", "user:tolkien"),
+  )
+}
+
+pub fn user_round_trip_test() {
+  round_trip(
+    shared.user_to_json,
+    shared.user_decoder(),
+    shared.User("user:1", "frodo@shire.test", True),
   )
 }
 

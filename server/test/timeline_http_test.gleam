@@ -9,8 +9,7 @@ import shared
 import wisp/simulate
 
 fn universe(config: db.Config, name: String) -> String {
-  let assert Ok(u) = db.create_universe(config, name, "")
-  u.id
+  helpers.owned_universe(config, name)
 }
 
 fn event(config: db.Config, u: String, name: String, when: String) -> String {
