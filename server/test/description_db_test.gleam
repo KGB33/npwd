@@ -22,7 +22,8 @@ pub fn create_appends_and_lists_in_order_test() {
   let u = universe(config, "Middle Earth")
   let n = node(config, u, "Shire")
   let assert Ok(first) = db.create_description(config, u, n, "It is green.")
-  let assert Ok(second) = db.create_description(config, u, n, "Hobbits live here.")
+  let assert Ok(second) =
+    db.create_description(config, u, n, "Hobbits live here.")
   assert first.position == 0
   assert second.position == 1
 
@@ -76,4 +77,14 @@ pub fn update_in_other_universe_is_not_found_test() {
   let n = node(config, a, "Shire")
   let assert Ok(created) = db.create_description(config, a, n, "x")
   assert db.update_description(config, b, created.id, "y") == Error(db.NotFound)
+}
+
+pub fn body_with_plus_round_trips_test() {
+  let config = helpers.fresh_db()
+  let u = universe(config, "Middle Earth")
+  let n = node(config, u, "Shire")
+  let assert Ok(d) = db.create_description(config, u, n, "1 + 1 = 2")
+  assert d.body == "1 + 1 = 2"
+  let assert Ok(ds) = db.list_descriptions(config, u, n)
+  assert bodies(ds) == ["1 + 1 = 2"]
 }

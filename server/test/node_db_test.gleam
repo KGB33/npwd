@@ -11,8 +11,7 @@ fn universe(config: db.Config, name: String) -> String {
 pub fn create_returns_node_test() {
   let config = helpers.fresh_db()
   let u = universe(config, "Middle Earth")
-  let assert Ok(node) =
-    db.create_node(config, u, "Shire", "Place", dict.new())
+  let assert Ok(node) = db.create_node(config, u, "Shire", "Place", dict.new())
   assert node.name == "Shire"
   assert node.universe == u
   assert node.kind == "Place"
@@ -98,4 +97,13 @@ pub fn delete_wrong_universe_is_not_found_test() {
   let assert Ok(node) = db.create_node(config, a, "Shire", "Place", dict.new())
   assert db.delete_node(config, b, node.id) == Error(db.NotFound)
   let assert Ok(_) = db.get_node(config, a, node.id)
+}
+
+pub fn name_with_plus_round_trips_test() {
+  let config = helpers.fresh_db()
+  let u = universe(config, "Middle Earth")
+  let assert Ok(node) = db.create_node(config, u, "a+b", "Place", dict.new())
+  assert node.name == "a+b"
+  let assert Ok(fetched) = db.get_node(config, u, node.id)
+  assert fetched.name == "a+b"
 }

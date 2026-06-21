@@ -103,13 +103,12 @@ fn run(
     |> request.set_host(config.host)
     |> request.set_port(config.port)
     |> request.set_path("/sql")
-    |> request.set_query(vars_query(vars))
     |> request.set_header("accept", "application/json")
     |> request.set_header("content-type", "text/plain")
     |> request.set_header("surreal-ns", config.namespace)
     |> request.set_header("surreal-db", config.database)
     |> request.set_header("authorization", "Basic " <> credentials)
-    |> request.set_body(surql)
+    |> request.set_body(let_prelude(vars) <> surql)
 
   use response <- result.try(
     httpc.send(req) |> result.replace_error(TransportError),
@@ -122,8 +121,10 @@ fn run(
   }
 }
 
-fn vars_query(vars: List(#(String, Json))) -> List(#(String, String)) {
-  list.map(vars, fn(v) { #(v.0, json.to_string(v.1)) })
+fn let_prelude(vars: List(#(String, Json))) -> String {
+  list.fold(vars, "", fn(acc, v) {
+    acc <> "LET $" <> v.0 <> " = " <> json.to_string(v.1) <> ";\n"
+  })
 }
 
 fn last_result(
@@ -324,6 +325,10 @@ pub fn list_nodes(
   )
 }
 
+fn fields_json(fields: dict.Dict(String, shared.FieldValue)) -> Json {
+  json.dict(fields, fn(k) { k }, shared.field_value_to_json)
+}
+
 pub fn create_node(
   config: Config,
   universe: String,
@@ -334,8 +339,13 @@ pub fn create_node(
   use <- require_valid([universe])
   query_first(
     config,
-    "CREATE node CONTENT $data",
-    [#("data", shared.node_content_to_json(universe, name, kind, fields))],
+    "CREATE node CONTENT { universe: type::thing($u), name: $name, kind: $kind, fields: $fields }",
+    [
+      #("u", json.string(universe)),
+      #("name", json.string(name)),
+      #("kind", json.string(kind)),
+      #("fields", fields_json(fields)),
+    ],
     shared.node_decoder(),
   )
 }
@@ -365,11 +375,13 @@ pub fn update_node(
   use <- require_valid([id, universe])
   query_first(
     config,
-    "UPDATE type::thing($id) CONTENT $data WHERE universe = type::thing($u)",
+    "UPDATE type::thing($id) CONTENT { universe: type::thing($u), name: $name, kind: $kind, fields: $fields } WHERE universe = type::thing($u)",
     [
       #("id", json.string(id)),
       #("u", json.string(universe)),
-      #("data", shared.node_content_to_json(universe, name, kind, fields)),
+      #("name", json.string(name)),
+      #("kind", json.string(kind)),
+      #("fields", fields_json(fields)),
     ],
     shared.node_decoder(),
   )
