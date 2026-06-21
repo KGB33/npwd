@@ -77,6 +77,9 @@ In another terminal (inside the dev shell):
 
 ```sh
 cd server
+# Config is read from the environment; the Nix dev shell exports dev values.
+# See `.env.example` at the repo root for the full contract. To seed the
+# first admin, also export ADMIN_EMAIL and ADMIN_PASSWORD on the first run:
 ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=changeme gleam run
 ```
 
