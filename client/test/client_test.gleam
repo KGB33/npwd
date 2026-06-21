@@ -14,8 +14,15 @@ pub fn main() -> Nil {
   gleeunit.main()
 }
 
+fn me() -> shared.User {
+  shared.User("user:me", "me@test", True)
+}
+
 fn blank() -> model.Model {
   model.Model(
+    auth: model.Loaded(Some(me())),
+    login: model.empty_login,
+    route: model.Home,
     universes: model.Loading,
     form: model.Form("", ""),
     editing: None,
@@ -34,7 +41,7 @@ fn blank() -> model.Model {
 }
 
 fn universe(id: String, name: String) -> shared.Universe {
-  shared.Universe(id, name, "")
+  shared.Universe(id, name, "", "user:me")
 }
 
 fn node(id: String, name: String, kind: String) -> shared.Node {
@@ -396,17 +403,126 @@ pub fn selected_view_shows_timeline_test() {
   )
 }
 
-fn start() {
+fn fresh() {
   simulate.application(client.init, client.update, view.view)
   |> simulate.start(Nil)
 }
 
+fn start() {
+  fresh()
+  |> simulate.message(model.MeLoaded(Ok(me())))
+}
+
 pub fn initial_view_is_loading_test() {
-  let sim = start()
+  let sim = fresh()
   assert query.has(
     simulate.view(sim),
-    query.and(query.test_id("status"), query.text("Loading universes…")),
+    query.and(query.test_id("status"), query.text("Loading…")),
   )
+}
+
+pub fn anonymous_sees_login_test() {
+  let sim =
+    fresh()
+    |> simulate.message(model.MeLoaded(Error(rsvp.BadBody)))
+  assert query.has(simulate.view(sim), query.test_id("login-email"))
+  assert query.has(simulate.view(sim), query.test_id("login-submit"))
+}
+
+pub fn non_owner_view_hides_node_form_test() {
+  let other = shared.Universe("u:9", "Shared", "", "user:someone-else")
+  let sim =
+    fresh()
+    |> simulate.message(model.MeLoaded(Ok(me())))
+    |> simulate.message(model.UniverseFetched(Ok(other)))
+    |> simulate.message(
+      model.NodesLoaded(Ok([node("node:1", "Shire", "Place")])),
+    )
+  assert query.has(simulate.view(sim), query.test_id("node-list"))
+  assert !query.has(simulate.view(sim), query.test_id("node-form"))
+}
+
+pub fn me_loaded_sets_user_test() {
+  let m0 = model.Model(..blank(), auth: model.Loading)
+  let #(m, _) = client.update(m0, model.MeLoaded(Ok(me())))
+  assert m.auth == model.Loaded(Some(me()))
+}
+
+pub fn me_error_sets_anonymous_test() {
+  let m0 = model.Model(..blank(), auth: model.Loading)
+  let #(m, _) = client.update(m0, model.MeLoaded(Error(rsvp.BadBody)))
+  assert m.auth == model.Loaded(None)
+}
+
+pub fn signin_success_sets_user_test() {
+  let m0 =
+    model.Model(
+      ..blank(),
+      auth: model.Loaded(None),
+      login: model.LoginForm("me@test", "pw", False),
+    )
+  let #(m, _) = client.update(m0, model.SignedIn(Ok(me())))
+  assert m.auth == model.Loaded(Some(me()))
+  assert m.login == model.empty_login
+}
+
+pub fn signin_failure_flags_form_test() {
+  let m0 =
+    model.Model(
+      ..blank(),
+      auth: model.Loaded(None),
+      login: model.LoginForm("me@test", "bad", False),
+    )
+  let #(m, _) = client.update(m0, model.SignedIn(Error(rsvp.BadBody)))
+  assert m.login.failed
+}
+
+pub fn logout_clears_session_test() {
+  let m0 =
+    model.Model(
+      ..blank(),
+      selected: Some(universe("u:1", "A")),
+    )
+  let #(m, _) = client.update(m0, model.SignedOut(Ok("")))
+  assert m.auth == model.Loaded(None)
+  assert m.selected == None
+}
+
+pub fn can_edit_true_for_owner_test() {
+  let m = model.Model(..blank(), selected: Some(universe("u:1", "A")))
+  assert model.can_edit(m)
+}
+
+pub fn can_edit_false_for_non_owner_test() {
+  let other = shared.Universe("u:9", "Shared", "", "user:someone-else")
+  let m = model.Model(..blank(), selected: Some(other))
+  assert !model.can_edit(m)
+}
+
+pub fn can_edit_false_when_anonymous_test() {
+  let m =
+    model.Model(
+      ..blank(),
+      auth: model.Loaded(None),
+      selected: Some(universe("u:1", "A")),
+    )
+  assert !model.can_edit(m)
+}
+
+pub fn route_from_path_parses_universe_test() {
+  assert model.route_from_path("/u/universe:abc")
+    == model.UniverseView("universe:abc")
+}
+
+pub fn route_from_path_home_test() {
+  assert model.route_from_path("/") == model.Home
+}
+
+pub fn universe_fetched_selects_test() {
+  let #(m, _) =
+    client.update(blank(), model.UniverseFetched(Ok(universe("u:1", "A"))))
+  assert m.selected == Some(universe("u:1", "A"))
+  assert m.nodes == model.Loading
 }
 
 pub fn loaded_view_lists_names_test() {

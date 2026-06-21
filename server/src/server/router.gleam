@@ -19,6 +19,7 @@ pub fn handle_request(config: db.Config, req: Request) -> Response {
 
   case wisp.path_segments(req) {
     [] -> index(req)
+    ["u", _] -> index(req)
     ["health"] -> health(req)
     ["me"] -> auth.me(config, req)
     ["auth", ..rest] -> auth.handle(config, req, rest)

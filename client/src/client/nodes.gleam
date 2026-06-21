@@ -189,7 +189,10 @@ fn description_row(d: shared.Description) -> Element(Msg) {
   )
 }
 
-pub fn nodes_view(nodes: Remote(List(shared.Node))) -> Element(Msg) {
+pub fn nodes_view(
+  nodes: Remote(List(shared.Node)),
+  can_edit: Bool,
+) -> Element(Msg) {
   case nodes {
     Loading -> ui.status("Loading nodes…")
     Failed -> ui.status("Could not load nodes")
@@ -200,12 +203,12 @@ pub fn nodes_view(nodes: Remote(List(shared.Node))) -> Element(Msg) {
           attribute.class("registry"),
           attribute.attribute("data-test-id", "node-list"),
         ],
-        list.map(list, node_row),
+        list.map(list, fn(n) { node_row(n, can_edit) }),
       )
   }
 }
 
-fn node_row(node: shared.Node) -> Element(Msg) {
+fn node_row(node: shared.Node, can_edit: Bool) -> Element(Msg) {
   html.li(
     [attribute.class("entry"), attribute.attribute("data-test-id", "node")],
     [
@@ -230,14 +233,19 @@ fn node_row(node: shared.Node) -> Element(Msg) {
           ]
         }
       ]),
-      html.div([attribute.class("entry__actions")], [
-        html.button([event.on_click(NodeEditStarted(node))], [
-          element.text("Edit"),
-        ]),
-        html.button([event.on_click(NodeDeleteRequested(node.id))], [
-          element.text("Delete"),
-        ]),
-      ]),
+      ..case can_edit {
+        True -> [
+          html.div([attribute.class("entry__actions")], [
+            html.button([event.on_click(NodeEditStarted(node))], [
+              element.text("Edit"),
+            ]),
+            html.button([event.on_click(NodeDeleteRequested(node.id))], [
+              element.text("Delete"),
+            ]),
+          ]),
+        ]
+        False -> []
+      }
     ],
   )
 }

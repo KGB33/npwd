@@ -31,3 +31,10 @@ pub fn unknown_route_404_test() {
     |> router.handle_request(helpers.fresh_config(), _)
   assert response.status == 404
 }
+
+pub fn universe_link_serves_spa_test() {
+  let response =
+    simulate.request(http.Get, "/u/universe:abc")
+    |> router.handle_request(helpers.fresh_config(), _)
+  assert response.status == 200
+}

@@ -76,6 +76,7 @@ fn node_select(
 pub fn edges_view(
   edges: Remote(List(shared.Edge)),
   nodes: Remote(List(shared.Node)),
+  can_edit: Bool,
 ) -> Element(Msg) {
   case edges {
     Loading -> ui.status("Loading edges…")
@@ -87,7 +88,7 @@ pub fn edges_view(
           attribute.class("registry"),
           attribute.attribute("data-test-id", "edge-list"),
         ],
-        list.map(list, fn(e) { edge_row(e, nodes) }),
+        list.map(list, fn(e) { edge_row(e, nodes, can_edit) }),
       )
   }
 }
@@ -95,6 +96,7 @@ pub fn edges_view(
 fn edge_row(
   edge: shared.Edge,
   nodes: Remote(List(shared.Node)),
+  can_edit: Bool,
 ) -> Element(Msg) {
   html.li(
     [attribute.class("entry"), attribute.attribute("data-test-id", "edge")],
@@ -114,11 +116,16 @@ fn edge_row(
           element.text(node_name(nodes, edge.to)),
         ]),
       ]),
-      html.div([attribute.class("entry__actions")], [
-        html.button([event.on_click(EdgeDeleteRequested(edge.id))], [
-          element.text("Delete"),
-        ]),
-      ]),
+      ..case can_edit {
+        True -> [
+          html.div([attribute.class("entry__actions")], [
+            html.button([event.on_click(EdgeDeleteRequested(edge.id))], [
+              element.text("Delete"),
+            ]),
+          ]),
+        ]
+        False -> []
+      }
     ],
   )
 }

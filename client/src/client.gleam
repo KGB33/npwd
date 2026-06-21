@@ -8,21 +8,25 @@ import client/model.{
   GenericFieldAdded, GenericFieldRemoved, GenericKeyChanged, GenericValueChanged,
   GraphFieldChanged, GraphFilter, GraphFilterApplied, GraphFilterCleared,
   GraphFromChanged, GraphLoaded, GraphRelationshipChanged, GraphToChanged,
-  GraphValueChanged, Loaded, Loading, Model, NameChanged, NodeDeleteRequested,
-  NodeDeleteResolved, NodeEditCancelled, NodeEditStarted, NodeForm,
-  NodeKindChanged, NodeNameChanged, NodeSaved, NodeSubmitted, NodesLoaded, Saved,
-  Submitted, TimelineLoaded, UniverseDeselected, UniverseSelected,
-  UniversesLoaded, description_body, edge_body, edge_submittable, empty_edge_form,
-  empty_form, empty_graph_filter, empty_node_form, graph_query, node_body,
-  node_to_form, update_at,
+  GraphValueChanged, Home, Loaded, Loading, LoginEmailChanged, LoginForm,
+  LoginPasswordChanged, LoginSubmitted, LogoutClicked, MeLoaded, Model,
+  NameChanged, NodeDeleteRequested, NodeDeleteResolved, NodeEditCancelled,
+  NodeEditStarted, NodeForm, NodeKindChanged, NodeNameChanged, NodeSaved,
+  NodeSubmitted, NodesLoaded, RouteChanged, Saved, SignedIn, SignedOut, Submitted,
+  TimelineLoaded, UniverseDeselected, UniverseFetched, UniverseSelected,
+  UniverseView, UniversesLoaded, description_body, edge_body, edge_submittable,
+  empty_edge_form, empty_form, empty_graph_filter, empty_login, empty_node_form,
+  graph_query, login_body, node_body, node_to_form, route_from_path, update_at,
 }
 import client/view
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/option.{None, Some}
+import gleam/uri
 import lustre
 import lustre/effect.{type Effect}
+import modem
 import rsvp
 import shared
 
@@ -33,8 +37,12 @@ pub fn main() -> Nil {
 }
 
 pub fn init(_args) -> #(Model, Effect(Msg)) {
+  let route = route_from_path(current_pathname())
   #(
     Model(
+      auth: Loading,
+      login: empty_login,
+      route: route,
       universes: Loading,
       form: empty_form,
       editing: None,
@@ -50,8 +58,47 @@ pub fn init(_args) -> #(Model, Effect(Msg)) {
       graph_filter: empty_graph_filter,
       timeline: Loading,
     ),
-    load_universes(),
+    effect.batch([load_me(), modem.init(on_route), route_effect(route)]),
   )
+}
+
+fn on_route(uri: uri.Uri) -> Msg {
+  RouteChanged(route_from_path(uri.path))
+}
+
+fn route_effect(route) -> Effect(Msg) {
+  case route {
+    UniverseView(id) -> load_universe(id)
+    Home -> effect.none()
+  }
+}
+
+@external(javascript, "./route_ffi.mjs", "pathname")
+fn current_pathname() -> String {
+  "/"
+}
+
+fn load_me() -> Effect(Msg) {
+  rsvp.get("/me", rsvp.expect_json(shared.user_decoder(), MeLoaded))
+}
+
+fn load_universe(id: String) -> Effect(Msg) {
+  rsvp.get(
+    "/universes/" <> id,
+    rsvp.expect_json(shared.universe_decoder(), UniverseFetched),
+  )
+}
+
+fn sign_in(model: Model) -> Effect(Msg) {
+  rsvp.post(
+    "/auth/signin",
+    login_body(model.login),
+    rsvp.expect_json(shared.user_decoder(), SignedIn),
+  )
+}
+
+fn sign_out() -> Effect(Msg) {
+  rsvp.post("/auth/signout", json.null(), rsvp.expect_text(SignedOut))
 }
 
 fn load_universes() -> Effect(Msg) {
@@ -233,8 +280,85 @@ fn do_render_graph(_data: String) -> Nil {
   Nil
 }
 
+fn select(model: Model, universe: shared.Universe) -> #(Model, Effect(Msg)) {
+  #(
+    Model(
+      ..model,
+      selected: Some(universe),
+      nodes: Loading,
+      node_form: empty_node_form,
+      editing_node: None,
+      descriptions: Loaded([]),
+      description_form: "",
+      edges: Loading,
+      edge_form: empty_edge_form,
+      graph: Loading,
+      graph_filter: empty_graph_filter,
+      timeline: Loading,
+    ),
+    effect.batch([
+      load_nodes(universe.id),
+      load_edges(universe.id),
+      load_graph(universe.id, empty_graph_filter),
+      load_timeline(universe.id),
+    ]),
+  )
+}
+
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
+    MeLoaded(Ok(user)) -> #(
+      Model(..model, auth: Loaded(Some(user))),
+      case model.route {
+        Home -> load_universes()
+        UniverseView(_) -> effect.none()
+      },
+    )
+    MeLoaded(Error(_)) -> #(Model(..model, auth: Loaded(None)), effect.none())
+    RouteChanged(Home) -> #(
+      Model(..model, route: Home, selected: None),
+      case model.auth {
+        Loaded(Some(_)) -> load_universes()
+        _ -> effect.none()
+      },
+    )
+    RouteChanged(UniverseView(id)) -> #(
+      Model(..model, route: UniverseView(id)),
+      load_universe(id),
+    )
+    UniverseFetched(Ok(universe)) -> select(model, universe)
+    UniverseFetched(Error(_)) -> #(
+      Model(..model, route: Home, selected: None),
+      effect.none(),
+    )
+    LoginEmailChanged(email) -> #(
+      Model(..model, login: LoginForm(..model.login, email:, failed: False)),
+      effect.none(),
+    )
+    LoginPasswordChanged(password) -> #(
+      Model(..model, login: LoginForm(..model.login, password:, failed: False)),
+      effect.none(),
+    )
+    LoginSubmitted -> #(model, sign_in(model))
+    SignedIn(Ok(user)) -> #(
+      Model(..model, auth: Loaded(Some(user)), login: empty_login),
+      load_universes(),
+    )
+    SignedIn(Error(_)) -> #(
+      Model(..model, login: LoginForm(..model.login, failed: True)),
+      effect.none(),
+    )
+    LogoutClicked -> #(model, sign_out())
+    SignedOut(_) -> #(
+      Model(
+        ..model,
+        auth: Loaded(None),
+        selected: None,
+        route: Home,
+        universes: Loading,
+      ),
+      modem.push("/", None, None),
+    )
     UniversesLoaded(Ok(universes)) -> #(
       Model(..model, universes: Loaded(universes)),
       effect.none(),
@@ -271,28 +395,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     )
     DeleteRequested(id) -> #(model, delete(id))
     DeleteResolved(_) -> #(model, load_universes())
-    UniverseSelected(universe) -> #(
-      Model(
-        ..model,
-        selected: Some(universe),
-        nodes: Loading,
-        node_form: empty_node_form,
-        editing_node: None,
-        descriptions: Loaded([]),
-        description_form: "",
-        edges: Loading,
-        edge_form: empty_edge_form,
-        graph: Loading,
-        graph_filter: empty_graph_filter,
-        timeline: Loading,
-      ),
-      effect.batch([
-        load_nodes(universe.id),
-        load_edges(universe.id),
-        load_graph(universe.id, empty_graph_filter),
-        load_timeline(universe.id),
-      ]),
-    )
+    UniverseSelected(universe) -> select(model, universe)
     UniverseDeselected -> #(
       Model(
         ..model,

@@ -3,8 +3,9 @@ import gleam/float
 import gleam/int
 import gleam/json.{type Json}
 import gleam/list
-import gleam/option.{type Option}
+import gleam/option.{type Option, Some}
 import gleam/string
+import gleam/uri
 import rsvp
 import shared
 
@@ -12,6 +13,15 @@ pub type Remote(a) {
   Loading
   Loaded(a)
   Failed
+}
+
+pub type Route {
+  Home
+  UniverseView(String)
+}
+
+pub type LoginForm {
+  LoginForm(email: String, password: String, failed: Bool)
 }
 
 pub type Form {
@@ -38,6 +48,9 @@ pub type GraphFilter {
 
 pub type Model {
   Model(
+    auth: Remote(Option(shared.User)),
+    login: LoginForm,
+    route: Route,
     universes: Remote(List(shared.Universe)),
     form: Form,
     editing: Option(String),
@@ -56,6 +69,15 @@ pub type Model {
 }
 
 pub type Msg {
+  MeLoaded(Result(shared.User, rsvp.Error(String)))
+  RouteChanged(Route)
+  UniverseFetched(Result(shared.Universe, rsvp.Error(String)))
+  LoginEmailChanged(String)
+  LoginPasswordChanged(String)
+  LoginSubmitted
+  SignedIn(Result(shared.User, rsvp.Error(String)))
+  LogoutClicked
+  SignedOut(Result(String, rsvp.Error(String)))
   UniversesLoaded(Result(List(shared.Universe), rsvp.Error(String)))
   NameChanged(String)
   DescriptionChanged(String)
@@ -105,7 +127,34 @@ pub type Msg {
   TimelineLoaded(Result(shared.Graph, rsvp.Error(String)))
 }
 
+pub const empty_login = LoginForm(email: "", password: "", failed: False)
+
 pub const empty_form = Form(name: "", description: "")
+
+pub fn route_from_path(path: String) -> Route {
+  case uri.path_segments(path) {
+    ["u", id] -> UniverseView(id)
+    _ -> Home
+  }
+}
+
+pub fn universe_path(id: String) -> String {
+  "/u/" <> id
+}
+
+pub fn can_edit(model: Model) -> Bool {
+  case model.auth, model.selected {
+    Loaded(Some(user)), Some(universe) -> user.id == universe.owner
+    _, _ -> False
+  }
+}
+
+pub fn login_body(form: LoginForm) -> Json {
+  json.object([
+    #("email", json.string(form.email)),
+    #("password", json.string(form.password)),
+  ])
+}
 
 pub const empty_node_form = NodeForm(name: "", kind: "", fields: [])
 

@@ -1,7 +1,7 @@
 import client/model.{
   type Model, type Msg, type Remote, DeleteRequested, DescriptionChanged,
   EditCancelled, EditStarted, Failed, Loaded, Loading, NameChanged, Submitted,
-  UniverseSelected,
+  universe_path,
 }
 import client/ui
 import gleam/list
@@ -83,11 +83,11 @@ fn universe_row(universe: shared.Universe) -> Element(Msg) {
         ),
       ]),
       html.div([attribute.class("entry__actions")], [
-        html.button(
+        html.a(
           [
             attribute.class("btn-primary"),
             attribute.attribute("data-test-id", "open"),
-            event.on_click(UniverseSelected(universe)),
+            attribute.href(universe_path(universe.id)),
           ],
           [element.text("Open")],
         ),
