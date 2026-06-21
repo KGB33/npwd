@@ -15,7 +15,10 @@ pub fn main() -> Nil {
     Error(message) -> panic as message
   }
   let config = loaded.config
-  let _ = db.apply_schema(config)
+  case db.apply_schema(config) {
+    Ok(_) -> Nil
+    Error(e) -> panic as { "schema apply failed: " <> db.error_to_string(e) }
+  }
   seed_admin(config)
 
   let assert Ok(_) =
@@ -28,15 +31,18 @@ pub fn main() -> Nil {
 }
 
 fn seed_admin(config: db.Config) -> Nil {
-  case
-    db.count_users(config),
-    envoy.get("ADMIN_EMAIL"),
-    envoy.get("ADMIN_PASSWORD")
-  {
-    Ok(0), Ok(email), Ok(password) -> {
-      let _ = db.create_user(config, email, passwords.hash(password), True)
-      Nil
-    }
-    _, _, _ -> Nil
+  case db.count_users(config) {
+    Ok(0) ->
+      case envoy.get("ADMIN_EMAIL"), envoy.get("ADMIN_PASSWORD") {
+        Ok(email), Ok(password) ->
+          case db.create_user(config, email, passwords.hash(password), True) {
+            Ok(_) -> Nil
+            Error(e) ->
+              panic as { "admin seed failed: " <> db.error_to_string(e) }
+          }
+        _, _ -> Nil
+      }
+    Ok(_) -> Nil
+    Error(e) -> panic as { "user count failed: " <> db.error_to_string(e) }
   }
 }

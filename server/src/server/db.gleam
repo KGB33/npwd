@@ -6,6 +6,7 @@ import gleam/erlang/application
 import gleam/http
 import gleam/http/request
 import gleam/httpc
+import gleam/int
 import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -34,6 +35,20 @@ pub type DbError {
   NotFound
   SchemaError
   InvalidInput
+}
+
+pub fn error_to_string(error: DbError) -> String {
+  case error {
+    TransportError -> "transport error: could not reach SurrealDB"
+    ResponseError(status, body) ->
+      "unexpected HTTP " <> int.to_string(status) <> ": " <> body
+    QueryError(detail) -> "query error: " <> detail
+    ResultDecodeError -> "could not decode SurrealDB response"
+    NoResult -> "query returned no result"
+    NotFound -> "record not found"
+    SchemaError -> "schema error"
+    InvalidInput -> "invalid input"
+  }
 }
 
 const id_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
