@@ -8,6 +8,7 @@ Users can:
   - [x] View these character-character relationships on a filterable graph
   - [x] Have multiple "universes" for different book series
   - [x] Plot events on a timeline and link them to people
+  - [x] Sign in; universes are shareable by link but only their owner can edit them
 
 ---
 
@@ -76,14 +77,19 @@ In another terminal (inside the dev shell):
 
 ```sh
 cd server
-gleam run
+ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=changeme gleam run
 ```
 
 It listens on **http://localhost:3000** and applies the schema on startup.
+Registration is invite-only: when the `user` table is empty the server seeds
+one admin from `ADMIN_EMAIL`/`ADMIN_PASSWORD` (omit them after the first run).
+Passwords are hashed with PBKDF2-HMAC-SHA512; the session is a signed,
+HttpOnly cookie. Admins invite more users via `POST /auth/users`.
 
 ### 4. Open the app
 
-Visit <http://localhost:3000>.
+Visit <http://localhost:3000> and sign in. Universes you create are yours to
+edit; anyone with the `/u/<id>` link can view (but not change) them.
 
 ## Tests
 
