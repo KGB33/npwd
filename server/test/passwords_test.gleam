@@ -14,6 +14,6 @@ pub fn garbage_hash_does_not_verify_test() {
   assert !passwords.verify("anything", "not-a-real-hash")
 }
 
-pub fn dummy_verify_is_false_test() {
-  assert passwords.dummy_verify("anything") == False
+pub fn dummy_verify_runs_test() {
+  assert passwords.dummy_verify("anything") == Nil
 }

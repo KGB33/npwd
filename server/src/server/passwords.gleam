@@ -23,9 +23,9 @@ pub fn verify(password: String, encoded: String) -> Bool {
   }
 }
 
-pub fn dummy_verify(password: String) -> Bool {
+pub fn dummy_verify(password: String) -> Nil {
   let _ = stretch(password, <<0:size(128)>>, iterations)
-  False
+  Nil
 }
 
 fn stretch(password: String, salt: BitArray, iters: Int) -> BitArray {

@@ -62,7 +62,7 @@ pub fn field_value_decoder() -> Decoder(FieldValue) {
   ])
 }
 
-fn fields_to_json(fields: Dict(String, FieldValue)) -> Json {
+pub fn fields_to_json(fields: Dict(String, FieldValue)) -> Json {
   json.dict(fields, fn(k) { k }, field_value_to_json)
 }
 
@@ -109,20 +109,6 @@ pub fn node_to_json(n: Node) -> Json {
     #("name", json.string(n.name)),
     #("kind", json.string(n.kind)),
     #("fields", fields_to_json(n.fields)),
-  ])
-}
-
-pub fn node_content_to_json(
-  universe: String,
-  name: String,
-  kind: String,
-  fields: Dict(String, FieldValue),
-) -> Json {
-  json.object([
-    #("universe", json.string(universe)),
-    #("name", json.string(name)),
-    #("kind", json.string(kind)),
-    #("fields", fields_to_json(fields)),
   ])
 }
 

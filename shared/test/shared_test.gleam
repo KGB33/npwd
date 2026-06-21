@@ -1,5 +1,4 @@
 import gleam/dict
-import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleeunit
@@ -87,32 +86,6 @@ pub fn description_round_trip_test() {
     shared.description_decoder(),
     shared.Description("d1", "node:1", 2, "The Ring is destroyed."),
   )
-}
-
-fn content_decoder() {
-  use universe <- decode.field("universe", decode.string)
-  use name <- decode.field("name", decode.string)
-  use kind <- decode.field("kind", decode.string)
-  use fields <- decode.field(
-    "fields",
-    decode.dict(decode.string, shared.field_value_decoder()),
-  )
-  decode.success(shared.Node("", universe, name, kind, fields))
-}
-
-pub fn node_content_round_trip_test() {
-  let node =
-    shared.Node(
-      "",
-      "universe:1",
-      "Fall of Sauron",
-      "Event",
-      dict.from_list([#("when", shared.StringValue("Third Age 3019"))]),
-    )
-  let json_string =
-    shared.node_content_to_json(node.universe, node.name, node.kind, node.fields)
-    |> json.to_string
-  assert json.parse(json_string, content_decoder()) == Ok(node)
 }
 
 pub fn field_value_round_trip_test() {

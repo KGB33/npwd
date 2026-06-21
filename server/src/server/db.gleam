@@ -314,8 +314,18 @@ pub fn list_nodes(
   )
 }
 
-fn fields_json(fields: dict.Dict(String, shared.FieldValue)) -> Json {
-  json.dict(fields, fn(k) { k }, shared.field_value_to_json)
+fn node_vars(
+  universe: String,
+  name: String,
+  kind: String,
+  fields: dict.Dict(String, shared.FieldValue),
+) -> List(#(String, Json)) {
+  [
+    #("u", json.string(universe)),
+    #("name", json.string(name)),
+    #("kind", json.string(kind)),
+    #("fields", shared.fields_to_json(fields)),
+  ]
 }
 
 pub fn create_node(
@@ -329,12 +339,7 @@ pub fn create_node(
   query_first(
     config,
     "CREATE node CONTENT { universe: type::thing($u), name: $name, kind: $kind, fields: $fields }",
-    [
-      #("u", json.string(universe)),
-      #("name", json.string(name)),
-      #("kind", json.string(kind)),
-      #("fields", fields_json(fields)),
-    ],
+    node_vars(universe, name, kind, fields),
     shared.node_decoder(),
   )
 }
@@ -365,13 +370,7 @@ pub fn update_node(
   query_first(
     config,
     "UPDATE type::thing($id) CONTENT { universe: type::thing($u), name: $name, kind: $kind, fields: $fields } WHERE universe = type::thing($u)",
-    [
-      #("id", json.string(id)),
-      #("u", json.string(universe)),
-      #("name", json.string(name)),
-      #("kind", json.string(kind)),
-      #("fields", fields_json(fields)),
-    ],
+    [#("id", json.string(id)), ..node_vars(universe, name, kind, fields)],
     shared.node_decoder(),
   )
 }
