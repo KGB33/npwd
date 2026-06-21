@@ -15,7 +15,66 @@
           config.allowUnfreePredicate = pkg:
             builtins.elem (inputs.nixpkgs.lib.getName pkg) ["surrealdb"];
         };
+
+        # ---------------------------------------------------------------------
+        # Build mechanism: FOD (fixed-output derivation), NOT nix-gleam.
+        #
+        # Decision (Task 3 spike): arnarg/nix-gleam's `buildGleamApplication`
+        # does not work with Gleam 1.17.0. Gleam 1.17 always re-runs "Resolving
+        # versions" and contacts repo.hex.pm during the build phase, even when
+        # `build/packages/packages.toml` and the hex package cache are present
+        # (which is all nix-gleam pre-seeds). That fails in the sandbox with
+        # `No CA certificates / error sending request for url`.
+        #
+        # The only reliable offline recipe with 1.17.0: run `gleam deps
+        # download` ONCE with network (the FOD `gleamDeps` below), capture the
+        # resulting `server/build/packages` tree (resolved deps + packages.toml),
+        # then in the sealed build restore that tree and run `gleam export
+        # erlang-shipment` with NO network. The captured packages tree carries
+        # the resolution metadata that suppresses any further hex contact.
+        #
+        # Tasks 5 (packages.default) and 6 (checks) MUST reuse `gleamDeps` and
+        # this same "restore build/packages, then build/export offline" pattern.
+        # ---------------------------------------------------------------------
+
+        # FOD: online `gleam deps download`. Output = the resolved
+        # `server/build/packages` tree (hex deps + packages.toml). The hash is
+        # pinned to manifest.toml's locked versions/checksums, so it only
+        # changes when the manifests change. `src` is the repo root so the
+        # `shared` local path dependency (../shared) resolves.
+        gleamDeps = pkgs.stdenvNoCC.mkDerivation {
+          name = "npwd-gleam-deps";
+          src = ./.;
+          nativeBuildInputs = [pkgs.gleam pkgs.cacert pkgs.git];
+          buildPhase = ''
+            export HOME=$TMPDIR
+            (cd server && gleam deps download)
+          '';
+          installPhase = "cp -r server/build/packages $out";
+          outputHashMode = "recursive";
+          outputHashAlgo = "sha256";
+          outputHash = "sha256-fiY48olLJvFgMkZl6q0Ux3faJv5KTzd5TfT9RJM65Bk=";
+        };
       in {
+        # Offline build: restore the pre-resolved deps into server/build/packages
+        # and run `gleam export erlang-shipment` with no network. Output is the
+        # erlang shipment tree ($out/entrypoint.sh + $out/<dep>/{ebin,priv}),
+        # including $out/server/priv/static where Task 5 injects client.js.
+        packages.server = pkgs.stdenv.mkDerivation {
+          name = "npwd-server";
+          src = ./.;
+          nativeBuildInputs = [pkgs.gleam pkgs.erlang_27 pkgs.rebar3];
+          buildPhase = ''
+            export HOME=$TMPDIR
+            export REBAR_CACHE_DIR=$TMPDIR/.rebar-cache
+            mkdir -p server/build
+            cp -r ${gleamDeps} server/build/packages
+            chmod -R u+w server/build/packages
+            (cd server && gleam export erlang-shipment)
+          '';
+          installPhase = "cp -r server/build/erlang-shipment $out";
+        };
+
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             gleam
