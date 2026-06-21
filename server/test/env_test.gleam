@@ -45,3 +45,14 @@ pub fn non_integer_surreal_port_is_error_test() {
     })
   assert env.load(getter(bad)) == Error("SURREAL_PORT must be an integer")
 }
+
+pub fn empty_var_is_treated_as_missing_test() {
+  let blank =
+    list.map(all(), fn(p) {
+      case p.0 {
+        "SECRET_KEY_BASE" -> #(p.0, "")
+        _ -> p
+      }
+    })
+  assert env.load(getter(blank)) == Error("SECRET_KEY_BASE is required")
+}

@@ -10,7 +10,10 @@ fn require(
   get: fn(String) -> Result(String, Nil),
   name: String,
 ) -> Result(String, String) {
-  get(name) |> result.replace_error(name <> " is required")
+  case get(name) {
+    Ok(value) if value != "" -> Ok(value)
+    _ -> Error(name <> " is required")
+  }
 }
 
 fn require_int(
