@@ -73,12 +73,12 @@
           outputHashAlgo = "sha256";
           outputHash = "sha256-IFgqWPgb3tfPX/G130qpN/a39yy9VEEOtQor42pzbGw=";
         };
-      in {
+
         # Offline build: restore the pre-resolved deps into server/build/packages
         # and run `gleam export erlang-shipment` with no network. Output is the
         # erlang shipment tree ($out/entrypoint.sh + $out/<dep>/{ebin,priv}),
         # including $out/server/priv/static where Task 5 injects client.js.
-        packages.server = pkgs.stdenv.mkDerivation {
+        serverPkg = pkgs.stdenv.mkDerivation {
           name = "npwd-server";
           src = ./.;
           nativeBuildInputs = [pkgs.gleam pkgs.erlang_27 pkgs.rebar3];
@@ -98,7 +98,7 @@
         # lustre/dev build`. client/gleam.toml sets `bun = "system"` so the
         # nixpkgs bun (on PATH) is used instead of a downloaded prebuilt. Output
         # is $out/client.js, which Task 5 injects into the server shipment.
-        packages.client = pkgs.stdenv.mkDerivation {
+        clientPkg = pkgs.stdenv.mkDerivation {
           name = "npwd-client";
           src = ./.;
           nativeBuildInputs = [pkgs.gleam pkgs.bun pkgs.erlang_27 pkgs.rebar3];
@@ -111,6 +111,19 @@
           '';
           installPhase = "install -Dm644 client/build/static/client.js $out/client.js";
         };
+      in {
+        packages.server = serverPkg;
+
+        packages.client = clientPkg;
+
+        # The deployable artifact: the server erlang-shipment with
+        # packages.client's client.js baked in at priv/static, so the
+        # shipment serves the bundle without any manual copy step.
+        packages.default = serverPkg.overrideAttrs (old: {
+          postPatch =
+            (old.postPatch or "")
+            + "\ncp ${clientPkg}/client.js server/priv/static/client.js\n";
+        });
 
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [

@@ -59,6 +59,10 @@ git-ignored; `index.html`, `styles.css`, and `fonts/` are hand-owned and committ
 > downloaded one won't run on NixOS). The first build also compiles the dev tools, so it
 > takes a little longer than later ones.
 
+> For a deployable build you do not run this by hand: `nix build` (see
+> **Deployment** below) builds the client bundle and bakes it into the
+> server artifact automatically.
+
 ### 2. Start SurrealDB
 
 The server expects SurrealDB at `127.0.0.1:8000` with user/pass `root`/`root` (see
