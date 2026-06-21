@@ -25,6 +25,16 @@
             bun
             surrealdb
           ];
+          shellHook = ''
+            export SURREAL_HOST=127.0.0.1
+            export SURREAL_PORT=8000
+            export SURREAL_NAMESPACE=npwd
+            export SURREAL_DATABASE=npwd
+            export SURREAL_USER=root
+            export SURREAL_PASSWORD=root
+            export PORT=3000
+            export SECRET_KEY_BASE=dev-only-secret-key-base-change-in-prod
+          '';
         };
       };
     };

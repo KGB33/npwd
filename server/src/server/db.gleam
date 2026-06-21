@@ -60,17 +60,6 @@ fn require_valid(
   }
 }
 
-pub fn default_config() -> Config {
-  Config(
-    host: "127.0.0.1",
-    port: 8000,
-    namespace: "npwd",
-    database: "npwd",
-    user: "root",
-    password: "root",
-  )
-}
-
 type Statement {
   Statement(status: String, detail: String, result: Option(Dynamic))
 }
