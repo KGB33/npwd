@@ -88,3 +88,15 @@ pub fn body_with_plus_round_trips_test() {
   let assert Ok(ds) = db.list_descriptions(config, u, n)
   assert bodies(ds) == ["1 + 1 = 2"]
 }
+
+pub fn positions_are_sequential_test() {
+  let config = helpers.fresh_db()
+  let u = universe(config, "Middle Earth")
+  let n = node(config, u, "Shire")
+  let assert Ok(a) = db.create_description(config, u, n, "first")
+  let assert Ok(b) = db.create_description(config, u, n, "second")
+  let assert Ok(c) = db.create_description(config, u, n, "third")
+  assert a.position == 0
+  assert b.position == 1
+  assert c.position == 2
+}

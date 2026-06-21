@@ -414,9 +414,11 @@ pub fn create_description(
   use _ <- result.try(get_node(config, universe, node))
   query_first(
     config,
-    "LET $rec = type::thing($n);
-     LET $p = count(SELECT id FROM description WHERE node = $rec);
-     CREATE description CONTENT { node: $rec, position: $p, body: $body } RETURN id, node, position, body;",
+    "CREATE description CONTENT {
+       node: type::thing($n),
+       position: count(SELECT id FROM description WHERE node = type::thing($n)),
+       body: $body
+     } RETURN id, node, position, body;",
     [#("n", json.string(node)), #("body", json.string(body))],
     shared.description_decoder(),
   )
