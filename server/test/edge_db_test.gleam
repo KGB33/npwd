@@ -81,3 +81,14 @@ pub fn delete_wrong_universe_is_not_found_test() {
   assert db.delete_edge(config, b, edge.id) == Error(db.NotFound)
   let assert Ok(_) = db.get_edge(config, a, edge.id)
 }
+
+pub fn create_with_foreign_node_is_not_found_test() {
+  let config = helpers.fresh_db()
+  let a = universe(config, "A")
+  let b = universe(config, "B")
+  let na = node(config, a, "Frodo")
+  let nb = node(config, b, "Sam")
+  assert db.create_edge(config, b, "knows", na, nb) == Error(db.NotFound)
+  let assert Ok(edges) = db.list_edges(config, b)
+  assert edges == []
+}

@@ -476,6 +476,8 @@ pub fn create_edge(
   to: String,
 ) -> Result(shared.Edge, DbError) {
   use <- require_valid([universe, from, to])
+  use _ <- result.try(get_node(config, universe, from))
+  use _ <- result.try(get_node(config, universe, to))
   query_first(
     config,
     "LET $f = type::thing($from); LET $t = type::thing($to); RELATE $f->relationship->$t CONTENT { universe: type::thing($u), relationship: $rel } RETURN id, in AS from, out AS to, relationship, universe",
