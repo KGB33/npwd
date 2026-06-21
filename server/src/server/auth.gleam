@@ -121,7 +121,7 @@ fn create_user(config: db.Config, req: Request) -> Response {
         )
       {
         Ok(user) -> web.json(user, shared.user_to_json, 201)
-        Error(_) -> wisp.response(409)
+        Error(e) -> wisp.response(create_user_status(e))
       }
     Error(_) -> wisp.bad_request("invalid user")
   }
@@ -136,5 +136,12 @@ fn require_admin(
   case user.admin {
     True -> handler(user)
     False -> wisp.response(403)
+  }
+}
+
+pub fn create_user_status(error: db.DbError) -> Int {
+  case error {
+    db.QueryError(_) -> 409
+    _ -> 500
   }
 }
