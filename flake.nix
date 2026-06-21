@@ -55,6 +55,24 @@
           outputHashAlgo = "sha256";
           outputHash = "sha256-fiY48olLJvFgMkZl6q0Ux3faJv5KTzd5TfT9RJM65Bk=";
         };
+
+        # FOD for the CLIENT package. client/manifest.toml is a separate
+        # manifest (target = javascript; deps lustre/rsvp/modem/lustre_dev_tools),
+        # so it needs its OWN resolved build/packages tree and its OWN pinned
+        # hash, independent of the server's gleamDeps above.
+        gleamClientDeps = pkgs.stdenvNoCC.mkDerivation {
+          name = "npwd-gleam-client-deps";
+          src = ./.;
+          nativeBuildInputs = [pkgs.gleam pkgs.cacert pkgs.git];
+          buildPhase = ''
+            export HOME=$TMPDIR
+            (cd client && gleam deps download)
+          '';
+          installPhase = "cp -r client/build/packages $out";
+          outputHashMode = "recursive";
+          outputHashAlgo = "sha256";
+          outputHash = "sha256-IFgqWPgb3tfPX/G130qpN/a39yy9VEEOtQor42pzbGw=";
+        };
       in {
         # Offline build: restore the pre-resolved deps into server/build/packages
         # and run `gleam export erlang-shipment` with no network. Output is the
@@ -73,6 +91,25 @@
             (cd server && gleam export erlang-shipment)
           '';
           installPhase = "cp -r server/build/erlang-shipment $out";
+        };
+
+        # Offline build: restore the pre-resolved client deps into
+        # client/build/packages, then bundle the Lustre app with `gleam run -m
+        # lustre/dev build`. client/gleam.toml sets `bun = "system"` so the
+        # nixpkgs bun (on PATH) is used instead of a downloaded prebuilt. Output
+        # is $out/client.js, which Task 5 injects into the server shipment.
+        packages.client = pkgs.stdenv.mkDerivation {
+          name = "npwd-client";
+          src = ./.;
+          nativeBuildInputs = [pkgs.gleam pkgs.bun pkgs.erlang_27 pkgs.rebar3];
+          buildPhase = ''
+            export HOME=$TMPDIR
+            mkdir -p client/build
+            cp -r ${gleamClientDeps} client/build/packages
+            chmod -R u+w client/build/packages
+            (cd client && gleam run -m lustre/dev build --outdir=build/static)
+          '';
+          installPhase = "install -Dm644 client/build/static/client.js $out/client.js";
         };
 
         devShells.default = pkgs.mkShell {
