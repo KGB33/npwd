@@ -98,6 +98,29 @@ HttpOnly cookie. Admins invite more users via `POST /auth/users`.
 Visit <http://localhost:3000> and sign in. Universes you create are yours to
 edit; anyone with the `/u/<id>` link can view (but not change) them.
 
+## Deployment
+
+Build the self-contained artifact (server + client bundle) with Nix:
+
+```sh
+nix build .#default
+```
+
+`result/` is an Erlang shipment with an `entrypoint.sh`. It reads all
+configuration from the environment — see `.env.example` for the full
+contract. Run it under your process manager (e.g. a systemd unit) with the
+env populated from your secrets store:
+
+```sh
+env $(grep -v '^#' /run/secrets/npwd.env | xargs) result/entrypoint.sh run
+```
+
+The server serves **plain HTTP on `$PORT`** and expects a TLS-terminating
+reverse proxy in front of it. For the session cookie to carry the `Secure`
+attribute, the proxy must pass `X-Forwarded-Proto: https`. SurrealDB, TLS,
+secrets, and the systemd unit are provisioned in your host configuration,
+not in this repo.
+
 ## Tests
 
 The server tests run against a real SurrealDB on port **8001** (separate from the dev DB on
