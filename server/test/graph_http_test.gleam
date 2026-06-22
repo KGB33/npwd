@@ -12,7 +12,12 @@ fn universe(config: db.Config, name: String) -> String {
   helpers.owned_universe(config, name)
 }
 
-fn person(config: db.Config, u: String, name: String, gender: String) -> String {
+fn person(
+  config: db.Config,
+  u: String,
+  name: String,
+  gender: String,
+) -> String {
   let fields = dict.from_list([#("gender", shared.StringValue(gender))])
   let assert Ok(n) = db.create_node(config, u, name, "Person", fields)
   n.id

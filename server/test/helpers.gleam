@@ -23,7 +23,8 @@ pub fn fresh_db() -> db.Config {
 
 pub fn owner(config: db.Config) -> shared.User {
   let n = int.to_string(int.random(1_000_000_000))
-  let assert Ok(user) = db.create_user(config, "u" <> n <> "@test", "secret", True)
+  let assert Ok(user) =
+    db.create_user(config, "u" <> n <> "@test", "secret", True)
   user
 }
 

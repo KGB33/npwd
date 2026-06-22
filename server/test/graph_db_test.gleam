@@ -9,7 +9,12 @@ fn universe(config: db.Config, name: String) -> String {
   helpers.owned_universe(config, name)
 }
 
-fn person(config: db.Config, u: String, name: String, gender: String) -> String {
+fn person(
+  config: db.Config,
+  u: String,
+  name: String,
+  gender: String,
+) -> String {
   let fields = dict.from_list([#("gender", shared.StringValue(gender))])
   let assert Ok(n) = db.create_node(config, u, name, "Person", fields)
   n.id
@@ -60,7 +65,8 @@ pub fn filters_by_relationship_test() {
   let assert Ok(_) = db.create_edge(config, u, "knows", a, b)
   let assert Ok(_) = db.create_edge(config, u, "hates", a, b)
 
-  let assert Ok(g) = db.subgraph(config, u, None, Some("knows"), None, None, None)
+  let assert Ok(g) =
+    db.subgraph(config, u, None, Some("knows"), None, None, None)
   assert rels(g.edges) == ["knows"]
   assert list.length(g.nodes) == 2
 }
@@ -77,7 +83,15 @@ pub fn filters_by_endpoint_kind_to_named_node_test() {
   let assert Ok(_) = db.create_edge(config, u, "lives_in", frodo, shire)
 
   let assert Ok(g) =
-    db.subgraph(config, u, Some("Person"), None, Some("Fall of Sauron"), None, None)
+    db.subgraph(
+      config,
+      u,
+      Some("Person"),
+      None,
+      Some("Fall of Sauron"),
+      None,
+      None,
+    )
   assert names(g.nodes) == ["Fall of Sauron", "Frodo", "Sam"]
   assert rels(g.edges) == ["at", "at"]
 }
@@ -92,7 +106,15 @@ pub fn filters_by_named_endpoint_to_kind_test() {
   let assert Ok(_) = db.create_edge(config, u, "visits", gandalf, shire)
 
   let assert Ok(g) =
-    db.subgraph(config, u, Some("Gandalf"), Some("befriends"), Some("Person"), None, None)
+    db.subgraph(
+      config,
+      u,
+      Some("Gandalf"),
+      Some("befriends"),
+      Some("Person"),
+      None,
+      None,
+    )
   assert names(g.nodes) == ["Frodo", "Gandalf"]
   assert rels(g.edges) == ["befriends"]
 }

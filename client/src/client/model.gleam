@@ -339,7 +339,8 @@ fn row_matches(
   && case field == "" || value == "" {
     True -> True
     False ->
-      field_matches(row.from, field, value) || field_matches(row.to, field, value)
+      field_matches(row.from, field, value)
+      || field_matches(row.to, field, value)
   }
 }
 
@@ -365,7 +366,9 @@ fn candidate_nodes(model: Model) -> List(shared.Node) {
 pub fn graph_from_options(model: Model) -> List(String) {
   let f = model.graph_filter
   graph_rows(model)
-  |> list.filter(fn(r) { row_matches(r, "", f.relationship, f.to, f.field, f.value) })
+  |> list.filter(fn(r) {
+    row_matches(r, "", f.relationship, f.to, f.field, f.value)
+  })
   |> list.flat_map(fn(r) { [r.from.name, r.from.kind] })
   |> distinct
 }
@@ -373,7 +376,9 @@ pub fn graph_from_options(model: Model) -> List(String) {
 pub fn graph_to_options(model: Model) -> List(String) {
   let f = model.graph_filter
   graph_rows(model)
-  |> list.filter(fn(r) { row_matches(r, f.from, f.relationship, "", f.field, f.value) })
+  |> list.filter(fn(r) {
+    row_matches(r, f.from, f.relationship, "", f.field, f.value)
+  })
   |> list.flat_map(fn(r) { [r.to.name, r.to.kind] })
   |> distinct
 }
@@ -395,7 +400,9 @@ pub fn graph_value_options(model: Model) -> List(String) {
     "" -> []
     field ->
       candidate_nodes(model)
-      |> list.filter_map(fn(n) { option.to_result(node_field_value(n, field), Nil) })
+      |> list.filter_map(fn(n) {
+        option.to_result(node_field_value(n, field), Nil)
+      })
       |> distinct
   }
 }

@@ -12,11 +12,12 @@ import client/model.{
   LoginPasswordChanged, LoginSubmitted, LogoutClicked, MeLoaded, Model,
   NameChanged, NodeDeleteRequested, NodeDeleteResolved, NodeEditCancelled,
   NodeEditStarted, NodeForm, NodeKindChanged, NodeNameChanged, NodeSaved,
-  NodeSubmitted, NodesLoaded, RouteChanged, Saved, SignedIn, SignedOut, Submitted,
-  TimelineLoaded, UniverseDeselected, UniverseFetched, UniverseSelected,
-  UniverseView, UniversesLoaded, description_body, edge_body, edge_submittable,
-  empty_edge_form, empty_form, empty_graph_filter, empty_login, empty_node_form,
-  graph_query, login_body, node_body, node_to_form, route_from_path, update_at,
+  NodeSubmitted, NodesLoaded, RouteChanged, Saved, SignedIn, SignedOut,
+  Submitted, TimelineLoaded, UniverseDeselected, UniverseFetched,
+  UniverseSelected, UniverseView, UniversesLoaded, description_body, edge_body,
+  edge_submittable, empty_edge_form, empty_form, empty_graph_filter, empty_login,
+  empty_node_form, graph_query, login_body, node_body, node_to_form,
+  route_from_path, update_at,
 }
 import client/view
 import gleam/dynamic/decode
@@ -428,15 +429,17 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       effect.none(),
     )
     GenericKeyChanged(index, key) -> #(
-      set_fields(model, update_at(model.node_form.fields, index, fn(f) {
-        #(key, f.1)
-      })),
+      set_fields(
+        model,
+        update_at(model.node_form.fields, index, fn(f) { #(key, f.1) }),
+      ),
       effect.none(),
     )
     GenericValueChanged(index, value) -> #(
-      set_fields(model, update_at(model.node_form.fields, index, fn(f) {
-        #(f.0, value)
-      })),
+      set_fields(
+        model,
+        update_at(model.node_form.fields, index, fn(f) { #(f.0, value) }),
+      ),
       effect.none(),
     )
     GenericFieldAdded -> #(

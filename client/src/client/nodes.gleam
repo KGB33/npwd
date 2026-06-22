@@ -150,7 +150,9 @@ fn descriptions_view(model: Model) -> Element(Msg) {
   )
 }
 
-fn descriptions_list(descriptions: Remote(List(shared.Description))) -> Element(Msg) {
+fn descriptions_list(
+  descriptions: Remote(List(shared.Description)),
+) -> Element(Msg) {
   case descriptions {
     Loading -> ui.status("Loading entries…")
     Failed -> ui.status("Could not load entries")

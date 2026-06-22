@@ -125,12 +125,18 @@ fn selected_view(model: Model, title: String) -> Element(Msg) {
       graph.graph_view(model.graph),
     ]),
     chapter("Chronicle", [timeline.timeline_view(model.timeline, model.nodes)]),
-    chapter("Catalogue", gated(editable, nodes.node_form_view(model), [
-      nodes.nodes_view(model.nodes, editable),
-    ])),
-    chapter("Relations", gated(editable, edges.edge_form_view(model), [
-      edges.edges_view(model.edges, model.nodes, editable),
-    ])),
+    chapter(
+      "Catalogue",
+      gated(editable, nodes.node_form_view(model), [
+        nodes.nodes_view(model.nodes, editable),
+      ]),
+    ),
+    chapter(
+      "Relations",
+      gated(editable, edges.edge_form_view(model), [
+        edges.edges_view(model.edges, model.nodes, editable),
+      ]),
+    ),
   ])
 }
 

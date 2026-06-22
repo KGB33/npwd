@@ -148,7 +148,9 @@ pub fn generic_add_and_remove_test() {
 
 pub fn node_edit_started_fills_form_test() {
   let n =
-    node_f("node:1", "Frodo", "Person", [#("gender", shared.StringValue("male"))])
+    node_f("node:1", "Frodo", "Person", [
+      #("gender", shared.StringValue("male")),
+    ])
   let #(m, _) = client.update(blank(), model.NodeEditStarted(n))
   assert m.editing_node == Some("node:1")
   assert m.node_form.name == "Frodo"
@@ -192,8 +194,7 @@ fn editing(node_id: String) -> model.Model {
 
 pub fn descriptions_loaded_sets_descriptions_test() {
   let d = shared.Description("description:1", "node:1", 0, "It is green.")
-  let #(m, _) =
-    client.update(blank(), model.DescriptionsLoaded(Ok([d])))
+  let #(m, _) = client.update(blank(), model.DescriptionsLoaded(Ok([d])))
   assert m.descriptions == model.Loaded([d])
 }
 
@@ -478,11 +479,7 @@ pub fn signin_failure_flags_form_test() {
 }
 
 pub fn logout_clears_session_test() {
-  let m0 =
-    model.Model(
-      ..blank(),
-      selected: Some(universe("u:1", "A")),
-    )
+  let m0 = model.Model(..blank(), selected: Some(universe("u:1", "A")))
   let #(m, _) = client.update(m0, model.SignedOut(Ok("")))
   assert m.auth == model.Loaded(None)
   assert m.selected == None
@@ -589,7 +586,12 @@ pub fn selected_view_shows_graph_filter_and_container_test() {
 
 // ---- smart graph-filter autocomplete ----
 
-fn linked(id: String, relationship: String, from: String, to: String) -> shared.Edge {
+fn linked(
+  id: String,
+  relationship: String,
+  from: String,
+  to: String,
+) -> shared.Edge {
   shared.Edge(id, "u:1", relationship, from, to)
 }
 
@@ -634,13 +636,9 @@ pub fn field_options_come_from_candidate_nodes_test() {
   let all = model.graph_field_options(graph_model(model.empty_graph_filter))
   assert all == ["gender", "material"]
   let scoped =
-    model.graph_field_options(graph_model(model.GraphFilter(
-      "",
-      "visits",
-      "",
-      "",
-      "",
-    )))
+    model.graph_field_options(
+      graph_model(model.GraphFilter("", "visits", "", "", "")),
+    )
   assert scoped == ["gender"]
 }
 

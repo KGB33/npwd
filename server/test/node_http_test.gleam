@@ -14,7 +14,11 @@ fn universe(config: db.Config, owner: shared.User, name: String) -> String {
   u.id
 }
 
-fn node_input(name: String, kind: String, fields: List(#(String, Json))) -> Json {
+fn node_input(
+  name: String,
+  kind: String,
+  fields: List(#(String, Json)),
+) -> Json {
   json.object([
     #("name", json.string(name)),
     #("kind", json.string(kind)),
@@ -142,8 +146,7 @@ pub fn update_test() {
   let owner = helpers.owner(config)
   let u = universe(config, owner, "Middle Earth")
   let created = create(config, owner, u, node_input("Aragorn", "Place", []))
-  let body =
-    node_input("Aragorn", "Person", [#("gender", json.string("male"))])
+  let body = node_input("Aragorn", "Person", [#("gender", json.string("male"))])
   let response =
     simulate.request(http.Put, "/universes/" <> u <> "/nodes/" <> created.id)
     |> simulate.json_body(body)
@@ -153,7 +156,8 @@ pub fn update_test() {
   let assert Ok(node) =
     json.parse(simulate.read_body(response), shared.node_decoder())
   assert node.kind == "Person"
-  assert node.fields == dict.from_list([#("gender", shared.StringValue("male"))])
+  assert node.fields
+    == dict.from_list([#("gender", shared.StringValue("male"))])
 }
 
 pub fn delete_test() {
