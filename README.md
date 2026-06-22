@@ -112,7 +112,8 @@ contract. Run it under your process manager (e.g. a systemd unit) with the
 env populated from your secrets store:
 
 ```sh
-env $(grep -v '^#' /run/secrets/npwd.env | xargs) result/entrypoint.sh run
+set -a; . /run/secrets/npwd.env; set +a
+result/entrypoint.sh run
 ```
 
 The server serves **plain HTTP on `$PORT`** and expects a TLS-terminating

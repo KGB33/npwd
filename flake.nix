@@ -145,6 +145,8 @@
             phases = ["unpackPhase" "buildPhase"];
           };
       in {
+        # Bare server shipment WITHOUT the client bundle (priv/static has no
+        # client.js, so the UI 404s). Intermediate target; deploy `.#default`.
         packages.server = serverPkg;
 
         packages.client = clientPkg;
