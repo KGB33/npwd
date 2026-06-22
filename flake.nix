@@ -37,42 +37,47 @@
         # this same "restore build/packages, then build/export offline" pattern.
         # ---------------------------------------------------------------------
 
-        # FOD: online `gleam deps download`. Output = the resolved
-        # `server/build/packages` tree (hex deps + packages.toml). The hash is
-        # pinned to manifest.toml's locked versions/checksums, so it only
-        # changes when the manifests change. `src` is the repo root so the
-        # `shared` local path dependency (../shared) resolves.
-        gleamDeps = pkgs.stdenvNoCC.mkDerivation {
-          name = "npwd-gleam-deps";
-          src = ./.;
-          nativeBuildInputs = [pkgs.gleam pkgs.cacert pkgs.git];
-          buildPhase = ''
-            export HOME=$TMPDIR
-            (cd server && gleam deps download)
-          '';
-          installPhase = "cp -r server/build/packages $out";
-          outputHashMode = "recursive";
-          outputHashAlgo = "sha256";
-          outputHash = "sha256-fiY48olLJvFgMkZl6q0Ux3faJv5KTzd5TfT9RJM65Bk=";
-        };
+        # FOD factory: online `gleam deps download` for a package `dir`. Output
+        # = that package's resolved `<dir>/build/packages` tree (hex deps +
+        # packages.toml). The hash is pinned to the package's manifest.toml
+        # locked versions/checksums, so it only changes when the manifest
+        # changes. `src` is the repo root so any local path dependency (e.g.
+        # the server/client `shared` dep, ../shared) resolves.
+        # `name` is passed explicitly (not derived from `dir`) so the server and
+        # client FODs keep their original derivation names — and therefore their
+        # original output store paths — leaving serverPkg/clientPkg/default
+        # byte-for-byte identical to the pre-refactor flake. (FOD store paths are
+        # computed from outputHash + name; renaming would force a re-download,
+        # and `gleam deps download` writes packages.toml entries in a
+        # non-deterministic order, so a fresh download can miss the pinned hash.)
+        mkGleamDeps = name: dir: hash:
+          pkgs.stdenvNoCC.mkDerivation {
+            inherit name;
+            src = ./.;
+            nativeBuildInputs = [pkgs.gleam pkgs.cacert pkgs.git];
+            buildPhase = ''
+              export HOME=$TMPDIR
+              (cd ${dir} && gleam deps download)
+            '';
+            installPhase = "cp -r ${dir}/build/packages $out";
+            outputHashMode = "recursive";
+            outputHashAlgo = "sha256";
+            outputHash = hash;
+          };
 
-        # FOD for the CLIENT package. client/manifest.toml is a separate
-        # manifest (target = javascript; deps lustre/rsvp/modem/lustre_dev_tools),
-        # so it needs its OWN resolved build/packages tree and its OWN pinned
-        # hash, independent of the server's gleamDeps above.
-        gleamClientDeps = pkgs.stdenvNoCC.mkDerivation {
-          name = "npwd-gleam-client-deps";
-          src = ./.;
-          nativeBuildInputs = [pkgs.gleam pkgs.cacert pkgs.git];
-          buildPhase = ''
-            export HOME=$TMPDIR
-            (cd client && gleam deps download)
-          '';
-          installPhase = "cp -r client/build/packages $out";
-          outputHashMode = "recursive";
-          outputHashAlgo = "sha256";
-          outputHash = "sha256-IFgqWPgb3tfPX/G130qpN/a39yy9VEEOtQor42pzbGw=";
-        };
+        # Server deps FOD. server/manifest.toml resolves the wisp/mist/etc.
+        # stack plus the local `shared` path dep.
+        gleamDeps = mkGleamDeps "npwd-gleam-deps" "server" "sha256-fiY48olLJvFgMkZl6q0Ux3faJv5KTzd5TfT9RJM65Bk=";
+
+        # Client deps FOD. client/manifest.toml is a separate manifest (target =
+        # javascript; deps lustre/rsvp/modem/lustre_dev_tools), so it needs its
+        # OWN resolved tree and OWN pinned hash, independent of the server.
+        gleamClientDeps = mkGleamDeps "npwd-gleam-client-deps" "client" "sha256-IFgqWPgb3tfPX/G130qpN/a39yy9VEEOtQor42pzbGw=";
+
+        # Shared deps FOD. shared/manifest.toml is a third manifest
+        # (gleam_stdlib/gleam_json + gleeunit dev dep), needed so the `shared`
+        # check can run gleam check + test offline.
+        gleamSharedDeps = mkGleamDeps "npwd-gleam-shared-deps" "shared" "sha256-Du0zeZXBY0O9X6ban+e6ZOssb8YIW6MnVTg3rnSTqAY=";
 
         # Offline build: restore the pre-resolved deps into server/build/packages
         # and run `gleam export erlang-shipment` with no network. Output is the
@@ -111,6 +116,34 @@
           '';
           installPhase = "install -Dm644 client/build/static/client.js $out/client.js";
         };
+
+        # Check factory for the no-DB packages (shared, client). Restores the
+        # package's pre-resolved deps tree (so gleam runs OFFLINE, same pattern
+        # as the build derivations above), then runs fmt + check + test.
+        # `nodejs` is the default JavaScript test runtime, needed by the
+        # client check (target = javascript); harmless for the erlang-target
+        # shared check.
+        mkGleamCheck = dir: depsFOD:
+          pkgs.stdenv.mkDerivation {
+            name = "npwd-check-${dir}";
+            src = ./.;
+            nativeBuildInputs = [pkgs.gleam pkgs.erlang_27 pkgs.rebar3 pkgs.nodejs];
+            buildPhase = ''
+              export HOME=$TMPDIR
+              export REBAR_CACHE_DIR=$TMPDIR/.rebar-cache
+              mkdir -p ${dir}/build
+              cp -r ${depsFOD} ${dir}/build/packages
+              chmod -R u+w ${dir}/build/packages
+              cd ${dir}
+              gleam format --check src test
+              # `--warnings-as-errors` lives on `gleam build` (not `gleam check`)
+              # in Gleam 1.17.0; build type-checks and fails on any warning.
+              gleam build --warnings-as-errors
+              gleam test
+              touch $out
+            '';
+            phases = ["unpackPhase" "buildPhase"];
+          };
       in {
         packages.server = serverPkg;
 
@@ -124,6 +157,60 @@
             (old.postPatch or "")
             + "\ncp ${clientPkg}/client.js server/priv/static/client.js\n";
         });
+
+        # fmt + `gleam build --warnings-as-errors` + tests per package, wired so
+        # `nix flake check` runs them. shared/client need no database; server
+        # needs SurrealDB, so it is Linux-only (loopback bind in the sandbox).
+        checks.shared = mkGleamCheck "shared" gleamSharedDeps;
+        checks.client = mkGleamCheck "client" gleamClientDeps;
+
+        # Server check: start an in-memory SurrealDB on loopback, wait with a
+        # BOUNDED readiness loop that exits non-zero on timeout (no fall-through),
+        # then restore deps and run fmt + check + test offline.
+        checks.server =
+          pkgs.lib.mkIf pkgs.stdenv.isLinux
+          (pkgs.stdenv.mkDerivation {
+            name = "npwd-check-server";
+            src = ./.;
+            nativeBuildInputs = [
+              pkgs.gleam
+              pkgs.erlang_27
+              pkgs.rebar3
+              pkgs.surrealdb
+              pkgs.curl
+              pkgs.cacert
+            ];
+            buildPhase = ''
+              export HOME=$TMPDIR
+              export REBAR_CACHE_DIR=$TMPDIR/.rebar-cache
+              # OTP 27 httpc eagerly loads OS CA certs even for plain-HTTP
+              # requests, and pubkey_os_cacerts crashes (function_clause) when no
+              # OS cert bundle exists, as in this sandbox. It honors the
+              # public_key app env `cacerts_path`, so point that at the nixpkgs
+              # cacert bundle. (The server reaches SurrealDB over httpc here.)
+              export ERL_FLAGS="-public_key cacerts_path '\"${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt\"'"
+              surreal start --user root --pass root \
+                --bind 127.0.0.1:8001 memory &
+              ready=0
+              for _ in $(seq 1 30); do
+                if curl -sf http://127.0.0.1:8001/health; then ready=1; break; fi
+                sleep 1
+              done
+              if [ "$ready" -ne 1 ]; then
+                echo "SurrealDB did not become ready" >&2
+                exit 1
+              fi
+              mkdir -p server/build
+              cp -r ${gleamDeps} server/build/packages
+              chmod -R u+w server/build/packages
+              cd server
+              gleam format --check src test
+              gleam build --warnings-as-errors
+              gleam test
+              touch $out
+            '';
+            phases = ["unpackPhase" "buildPhase"];
+          });
 
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
