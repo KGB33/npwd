@@ -30,7 +30,7 @@ every connection is a `relationship` edge.
 
 ## Running locally
 
-Everything below assumes the Nix dev shell, which provides `gleam`, `erlang_27`, `nodejs`,
+Everything below assumes the Nix dev shell, which provides `gleam`, `erlang`, `bun`,
 and `surrealdb`. Enter it with:
 
 ```sh
@@ -38,6 +38,11 @@ nix develop
 ```
 
 (or `direnv allow` once, then it loads automatically on `cd`).
+
+Configuration is read from the environment. Copy `.env.example` to `.env` and adjust as
+needed — `direnv` loads `.env` automatically (the defaults there point at the local
+SurrealDB started in step 2). Without `direnv`, source it yourself before running the
+server: `set -a; . .env; set +a`.
 
 ### 1. Build the client bundle
 
@@ -81,9 +86,10 @@ In another terminal (inside the dev shell):
 
 ```sh
 cd server
-# Config is read from the environment; the Nix dev shell exports dev values.
-# See `.env.example` at the repo root for the full contract. To seed the
-# first admin, also export ADMIN_EMAIL and ADMIN_PASSWORD on the first run:
+# Config is read from the environment, loaded from `.env` (see the intro above
+# and `.env.example` for the full contract). To seed the first admin, set
+# ADMIN_EMAIL and ADMIN_PASSWORD on the first run — uncomment them in `.env`,
+# or pass them inline as below:
 ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=changeme gleam run
 ```
 
@@ -103,17 +109,17 @@ edit; anyone with the `/u/<id>` link can view (but not change) them.
 Build the self-contained artifact (server + client bundle) with Nix:
 
 ```sh
-nix build .#default
+nix build .#npwd
 ```
 
-`result/` is an Erlang shipment with an `entrypoint.sh`. It reads all
-configuration from the environment — see `.env.example` for the full
-contract. Run it under your process manager (e.g. a systemd unit) with the
-env populated from your secrets store:
+`result/bin/server` is a launcher for the Erlang shipment under `result/lib`.
+It reads all configuration from the environment — see `.env.example` for the
+full contract. Run it under your process manager (e.g. a systemd unit) with
+the env populated from your secrets store:
 
 ```sh
 set -a; . /run/secrets/npwd.env; set +a
-result/entrypoint.sh run
+result/bin/server
 ```
 
 The server serves **plain HTTP on `$PORT`** and expects a TLS-terminating
