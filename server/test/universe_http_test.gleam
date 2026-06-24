@@ -89,7 +89,7 @@ pub fn get_unknown_is_404_test() {
   assert response.status == 404
 }
 
-pub fn get_is_public_test() {
+pub fn get_is_public_but_hides_owner_test() {
   let config = helpers.fresh_db()
   let owner = helpers.owner(config)
   let created = create(config, owner, "Earthsea", "Le Guin")
@@ -99,7 +99,21 @@ pub fn get_is_public_test() {
   assert response.status == 200
   let assert Ok(universe) =
     json.parse(simulate.read_body(response), shared.universe_decoder())
-  assert universe == created
+  assert universe == shared.Universe(..created, owner: "")
+}
+
+pub fn get_by_owner_includes_owner_test() {
+  let config = helpers.fresh_db()
+  let owner = helpers.owner(config)
+  let created = create(config, owner, "Roke", "Le Guin")
+  let response =
+    simulate.request(http.Get, "/universes/" <> created.id)
+    |> helpers.auth(owner)
+    |> router.handle_request(config, _)
+  assert response.status == 200
+  let assert Ok(universe) =
+    json.parse(simulate.read_body(response), shared.universe_decoder())
+  assert universe.owner == owner.id
 }
 
 pub fn update_test() {

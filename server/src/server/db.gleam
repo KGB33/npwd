@@ -30,6 +30,7 @@ pub type DbError {
   TransportError
   ResponseError(status: Int, body: String)
   QueryError(detail: String)
+  Conflict
   ResultDecodeError
   NoResult
   NotFound
@@ -43,6 +44,7 @@ pub fn error_to_string(error: DbError) -> String {
     ResponseError(status, body) ->
       "unexpected HTTP " <> int.to_string(status) <> ": " <> body
     QueryError(detail) -> "query error: " <> detail
+    Conflict -> "conflict: record already exists"
     ResultDecodeError -> "could not decode SurrealDB response"
     NoResult -> "query returned no result"
     NotFound -> "record not found"
@@ -142,7 +144,31 @@ fn last_result(
     "OK", Some(value) ->
       decode.run(value, decoder) |> result.replace_error(ResultDecodeError)
     "OK", None -> Error(NoResult)
-    _, _ -> Error(QueryError(last.detail))
+    _, _ -> Error(classify_error(statement_error(last)))
+  }
+}
+
+/// SurrealDB reports a failed statement's message in `detail` for some errors
+/// and in `result` (as a string) for others, e.g. unique index violations.
+/// Prefer a non-empty `detail`, otherwise fall back to the `result` string.
+fn statement_error(statement: Statement) -> String {
+  case statement.detail, statement.result {
+    "", Some(value) ->
+      case decode.run(value, decode.string) {
+        Ok(message) -> message
+        Error(_) -> ""
+      }
+    _, _ -> statement.detail
+  }
+}
+
+/// Turn a raw SurrealDB error message into a semantic error. Unique-index
+/// violations are reported as a distinct `Conflict` so callers never have to
+/// pattern-match on SurrealDB's wording.
+fn classify_error(message: String) -> DbError {
+  case string.contains(message, "already contains") {
+    True -> Conflict
+    False -> QueryError(message)
   }
 }
 

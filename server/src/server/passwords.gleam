@@ -10,6 +10,14 @@ const dk_length = 64
 
 const salt_length = 16
 
+/// Upper bound on accepted password size, in bytes. Guards the unauthenticated
+/// sign-in path against pathologically large inputs being fed to PBKDF2.
+pub const max_password_bytes = 1024
+
+pub fn within_limit(password: String) -> Bool {
+  string.byte_size(password) <= max_password_bytes
+}
+
 pub fn hash(password: String) -> String {
   let salt = crypto.strong_random_bytes(salt_length)
   encode(salt, stretch(password, salt, iterations))

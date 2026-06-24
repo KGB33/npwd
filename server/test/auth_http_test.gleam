@@ -1,5 +1,6 @@
 import gleam/http
 import gleam/json.{type Json}
+import gleam/string
 import helpers
 import server/db
 import server/passwords
@@ -149,6 +150,27 @@ pub fn invite_requires_auth_test() {
     |> simulate.json_body(creds("pippin@shire.test", "fool"))
     |> router.handle_request(config, _)
   assert response.status == 401
+}
+
+pub fn signin_oversized_password_is_400_test() {
+  let config = helpers.fresh_db()
+  let _ = seed(config, "frodo@shire.test", "ring", False)
+  let response =
+    simulate.request(http.Post, "/auth/signin")
+    |> simulate.json_body(creds("frodo@shire.test", string.repeat("a", 1025)))
+    |> router.handle_request(config, _)
+  assert response.status == 400
+}
+
+pub fn invite_oversized_password_is_400_test() {
+  let config = helpers.fresh_db()
+  let admin = seed(config, "gandalf@white.test", "staff", True)
+  let response =
+    simulate.request(http.Post, "/auth/users")
+    |> simulate.json_body(creds("pippin@shire.test", string.repeat("a", 1025)))
+    |> helpers.auth(admin)
+    |> router.handle_request(config, _)
+  assert response.status == 400
 }
 
 pub fn duplicate_email_is_409_test() {

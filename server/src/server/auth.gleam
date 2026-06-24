@@ -1,3 +1,4 @@
+import gleam/bool
 import gleam/dynamic/decode.{type Decoder}
 import gleam/http.{Get, Post}
 import gleam/result
@@ -80,7 +81,8 @@ fn signin(config: db.Config, req: Request) -> Response {
   use <- wisp.require_method(req, Post)
   use body <- wisp.require_json(req)
   case decode.run(body, input_decoder()) {
-    Ok(input) ->
+    Ok(input) -> {
+      use <- require_password_within_limit(input.password)
       case db.find_credentials(config, input.email) {
         Ok(creds) ->
           case passwords.verify(input.password, creds.hash) {
@@ -100,8 +102,22 @@ fn signin(config: db.Config, req: Request) -> Response {
           wisp.response(401)
         }
       }
+    }
     Error(_) -> wisp.bad_request("invalid credentials")
   }
+}
+
+/// Reject oversized passwords before they reach PBKDF2. Mirrors the
+/// `require_*` guard family above.
+fn require_password_within_limit(
+  password: String,
+  then: fn() -> Response,
+) -> Response {
+  use <- bool.guard(
+    !passwords.within_limit(password),
+    wisp.bad_request("password too long"),
+  )
+  then()
 }
 
 fn signout(req: Request) -> Response {
@@ -114,7 +130,8 @@ fn create_user(config: db.Config, req: Request) -> Response {
   use _admin <- require_admin(req, config)
   use body <- wisp.require_json(req)
   case decode.run(body, input_decoder()) {
-    Ok(input) ->
+    Ok(input) -> {
+      use <- require_password_within_limit(input.password)
       case
         db.create_user(
           config,
@@ -126,6 +143,7 @@ fn create_user(config: db.Config, req: Request) -> Response {
         Ok(user) -> web.json(user, shared.user_to_json, 201)
         Error(e) -> wisp.response(create_user_status(e))
       }
+    }
     Error(_) -> wisp.bad_request("invalid user")
   }
 }
@@ -144,7 +162,7 @@ fn require_admin(
 
 pub fn create_user_status(error: db.DbError) -> Int {
   case error {
-    db.QueryError(_) -> 409
+    db.Conflict -> 409
     _ -> 500
   }
 }

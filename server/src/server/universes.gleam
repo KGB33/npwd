@@ -26,8 +26,7 @@ pub fn handle(
       }
     [id] ->
       case req.method {
-        Get ->
-          web.respond(db.get_universe(config, id), shared.universe_to_json, 200)
+        Get -> get(config, req, id)
         Put -> {
           use _ <- auth.require_owner(req, config, id)
           update(config, req, id)
@@ -50,6 +49,27 @@ fn input_decoder() -> Decoder(Input) {
   use name <- decode.field("name", decode.string)
   use description <- decode.field("description", decode.string)
   decode.success(Input(name:, description:))
+}
+
+fn get(config: db.Config, req: Request, id: String) -> Response {
+  case db.get_universe(config, id) {
+    Ok(u) -> web.json(visible_to(req, config, u), shared.universe_to_json, 200)
+    Error(e) -> web.db_error(e)
+  }
+}
+
+/// The `owner` record id is meaningful only to the owner (the client uses it to
+/// decide whether to show edit controls). Anyone else gets it blanked so a
+/// shared universe does not leak its owner's user id.
+fn visible_to(
+  req: Request,
+  config: db.Config,
+  u: shared.Universe,
+) -> shared.Universe {
+  case auth.current_user(req, config) {
+    Ok(user) if user.id == u.owner -> u
+    _ -> shared.Universe(..u, owner: "")
+  }
 }
 
 fn list(config: db.Config, owner: String) -> Response {

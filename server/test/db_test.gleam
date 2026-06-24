@@ -30,6 +30,13 @@ pub fn create_and_select_test() {
   assert names == Ok(["Middle Earth"])
 }
 
+pub fn unique_violation_is_conflict_test() {
+  let config = fresh_config()
+  let assert Ok(Nil) = db.apply_schema(config)
+  let assert Ok(_) = db.create_user(config, "dup@test", "h", False)
+  assert db.create_user(config, "dup@test", "h", False) == Error(db.Conflict)
+}
+
 pub fn isolation_between_databases_test() {
   let a = fresh_config()
   let b = fresh_config()
